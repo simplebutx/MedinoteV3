@@ -1,0 +1,13 @@
+{
+  "expo": {
+    "name": "Medinote AI",
+    "slug": "medinote-ai",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "assetBundlePatterns": ["**/*"],
+    "android": {
+      "package": "com.medinote.ai"
+    }
+  }
+}

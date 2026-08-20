@@ -5,17 +5,26 @@ __pycache__/
 
 # Virtual environment
 .venv/
+ai-server/.venv/
 
 # Environment variables
 .env
 
 # Local data files
 data/raw/
+ai-server/data/raw/
 
 # Qdrant / Docker local volumes if created in project
 qdrant_storage/
+ai-server/qdrant_storage/
 
 # OS / editor
 .DS_Store
 Thumbs.db
 .vscode/
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.env
+frontend/.expo/
