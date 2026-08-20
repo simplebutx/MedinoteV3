@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Virtual environment
+.venv/
+
+# Environment variables
+.env
+
+# Local data files
+data/raw/
+
+# Qdrant / Docker local volumes if created in project
+qdrant_storage/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
