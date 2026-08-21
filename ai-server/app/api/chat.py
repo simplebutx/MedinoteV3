@@ -7,10 +7,10 @@ router = APIRouter(prefix="/chat", tags=["Chat"])
 
 @router.post("", response_model=ChatResponse)
 def chat(request: ChatRequest):
-    return ChatResponse(
-        answer=answer_question_with_graph(
-            medicine_name=request.medicine_name,
-            question=request.question,
-            top_k=request.top_k,
-        )
+    result = answer_question_with_graph(
+        medicine_name=request.medicine_name,
+        question=request.question,
+        top_k=request.top_k,
     )
+
+    return ChatResponse(**result)

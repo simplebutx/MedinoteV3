@@ -8,6 +8,8 @@ from app.db.qdrant import get_qdrant_client
 from qdrant_client.models import FieldCondition, Filter, MatchValue
 
 EMBEDDING_MODEL = "text-embedding-3-small"
+DEFAULT_SOURCE_NAME = "의약품안전나라"
+DEFAULT_SOURCE_URL = "https://nedrug.mfds.go.kr"
 
 # 임베딩 객체 생성
 def get_embeddings():
@@ -52,6 +54,8 @@ def search_medicines(medicine_name: str, query: str, top_k: int = 5):
             "score": score,
             "medicine_id": metadata.get("medicine_id"),
             "document_type": metadata.get("document_type"),
+            "source_name": metadata.get("source_name") or DEFAULT_SOURCE_NAME,
+            "source_url": metadata.get("source_url") or DEFAULT_SOURCE_URL,
         })
 
     return results

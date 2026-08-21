@@ -17,6 +17,32 @@ class ChatState(TypedDict):
     search_results: list[dict]
     context: str
     answer: str
+    sources: list[dict]
+
+
+def build_sources(search_results: list[dict]) -> list[dict]:
+    sources = []
+    seen = set()
+
+    for result in search_results:
+        name = result.get("source_name")
+        url = result.get("source_url")
+
+        if not name and not url:
+            continue
+
+        source_key = (name, url)
+
+        if source_key in seen:
+            continue
+
+        seen.add(source_key)
+        sources.append({
+            "name": name,
+            "url": url,
+        })
+
+    return sources
 
 # 노드: 현재 state -> 검색 -> state에 결과 추가
 def retrieve_documents(state: ChatState):
@@ -30,6 +56,7 @@ def retrieve_documents(state: ChatState):
     return {
         "search_results": results,
         "context": build_context(results),
+        "sources": build_sources(results),
     }
 
 # 노드: 답변 생성
@@ -59,11 +86,14 @@ def answer_question_with_graph(
     medicine_name: str,
     question: str,
     top_k: int = 5,
-) -> str:
+) -> dict:
     result = chat_graph.invoke({
         "medicine_name": medicine_name,
         "question": question,
         "top_k": top_k,
     })
 
-    return result["answer"]
+    return {
+        "answer": result["answer"],
+        "sources": result.get("sources", []),
+    }

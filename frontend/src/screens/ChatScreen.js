@@ -1,8 +1,19 @@
-import { ActivityIndicator, FlatList, Pressable, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, FlatList, Linking, Pressable, Text, TextInput, View } from "react-native";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { API_BASE_URL } from "../constants/api";
 import { styles } from "../styles/sharedStyles";
+
+function stripMarkdown(text) {
+  return String(text || "")
+    .replace(/\*\*([^*]+)\*\*/g, "$1")
+    .replace(/__([^_]+)__/g, "$1")
+    .replace(/`([^`]+)`/g, "$1")
+    .replace(/^\s{0,3}#{1,6}\s+/gm, "")
+    .replace(/^\s{0,3}[-*]\s+/gm, "")
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, "$1")
+    .replace(/\*/g, "");
+}
 
 export function ChatScreen({
   messages,
@@ -81,13 +92,29 @@ export function ChatScreen({
 
   function renderMessage({ item }) {
     const isUser = item.role === "user";
+    const sources = item.sources || [];
 
     return (
       <View style={[styles.messageRow, isUser && styles.userMessageRow]}>
         <View style={[styles.messageBubble, isUser && styles.userBubble]}>
           <Text style={[styles.messageText, isUser && styles.userMessageText]}>
-            {item.text}
+            {isUser ? item.text : stripMarkdown(item.text)}
           </Text>
+          {!isUser && sources.length > 0 ? (
+            <View style={styles.messageSources}>
+              {sources.map((source, index) => (
+                <Pressable
+                  key={`${source.name || "source"}-${index}`}
+                  disabled={!source.url}
+                  onPress={() => source.url && Linking.openURL(source.url)}
+                >
+                  <Text style={styles.messageSourceText}>
+                    출처: {source.name || "알 수 없음"}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          ) : null}
         </View>
       </View>
     );

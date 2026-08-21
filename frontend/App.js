@@ -110,6 +110,7 @@ export default function App() {
           id: `${Date.now()}-assistant`,
           role: "assistant",
           text: data.answer || "답변을 받지 못했습니다.",
+          sources: data.sources || [],
         },
       ]);
     } catch {

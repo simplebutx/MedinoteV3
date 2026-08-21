@@ -14,6 +14,8 @@ OUTPUT_PATH = Path("data/processed/medicine_chunks.jsonl")
 CHUNK_SIZE = 1000
 CHUNK_OVERLAP = 150
 MAX_SECTION_CHARS = 1500
+SOURCE_NAME = "의약품안전나라"
+SOURCE_URL = "https://nedrug.mfds.go.kr"
 
 # 문서 이름에서 약id와 약이름 분리
 def parse_medicine_folder(folder_name: str) -> tuple[str, str]:
@@ -122,6 +124,8 @@ def chunk_pdf(pdf_path: Path) -> list[dict]:
                     "document_type": document_type,
                     "section_title": document_type,
                     "source_path": str(pdf_path),
+                    "source_name": SOURCE_NAME,
+                    "source_url": SOURCE_URL,
                     "page": None,
                     "chunk_index": chunk_index,
                     "text": normalize_text_for_storage(text),
@@ -155,6 +159,8 @@ def chunk_pdf(pdf_path: Path) -> list[dict]:
                     "document_type": document_type,
                     "section_title": section_title,
                     "source_path": str(pdf_path),
+                    "source_name": SOURCE_NAME,
+                    "source_url": SOURCE_URL,
                     "page": None,
                     "chunk_index": chunk_index,
                     "section_chunk_index": split_index,

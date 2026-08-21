@@ -108,6 +108,20 @@ export const styles = StyleSheet.create({
   userMessageText: {
     color: "#ffffff",
   },
+  messageSources: {
+    borderTopColor: "#d7e0df",
+    borderTopWidth: 1,
+    gap: 4,
+    marginTop: 9,
+    paddingTop: 7,
+  },
+  messageSourceText: {
+    color: "#176b87",
+    fontSize: 12,
+    fontStyle: "italic",
+    fontWeight: "700",
+    lineHeight: 17,
+  },
   loadingRow: {
     alignItems: "center",
     flexDirection: "row",
