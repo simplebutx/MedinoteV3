@@ -5,7 +5,6 @@ import re
 import urllib.request
 from pathlib import Path
 
-
 CSV_PATH = Path("data/sample_medicine_pdf_links.csv")
 PDF_DIR = Path("data/raw/medicine_pdfs")
 
@@ -21,14 +20,16 @@ def safe_filename(text: str) -> str:
     text = re.sub(r"\s+", "_", text)
     return text[:80]
 
-
+# PDF URL 하나를 지정한 경로에 저장
 def download_pdf(url: str, save_path: Path) -> None:
+    # 저장할 폴더 생성
     save_path.parent.mkdir(parents=True, exist_ok=True)
 
     if save_path.exists():
         print(f"이미 있음: {save_path}")
         return
 
+    # pdf 다운로드 요청
     request = urllib.request.Request(
         url,
         headers={"User-Agent": "Mozilla/5.0"},
@@ -37,6 +38,7 @@ def download_pdf(url: str, save_path: Path) -> None:
     with urllib.request.urlopen(request) as response:
         data = response.read()
 
+    # 저장
     save_path.write_bytes(data)
     print(f"다운로드 완료: {save_path}")
 
@@ -49,6 +51,7 @@ def main():
             item_seq = row["item_seq"]
             item_name = row["item_name"]
 
+            # 폴더 이름, 경로 생성
             folder_name = safe_filename(f"{item_seq}_{item_name}")
             medicine_dir = PDF_DIR / folder_name
 
@@ -58,6 +61,7 @@ def main():
                 if not url:
                     continue
 
+                # 저장 경로
                 save_path = medicine_dir / f"{document_type}.pdf"
                 download_pdf(url, save_path)
 

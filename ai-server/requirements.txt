@@ -4,3 +4,11 @@ python-dotenv
 python-multipart
 pydantic-settings
 qdrant-client
+langchain
+langchain-community
+langchain-text-splitters
+pypdf
+openai
+langchain-openai
+langchain-qdrant
+langgraph
