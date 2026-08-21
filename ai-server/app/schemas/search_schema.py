@@ -13,3 +13,10 @@ class SearchResult(BaseModel):
 
 class SearchResponse(BaseModel):
     results: list[SearchResult]
+
+class MedicineSuggestion(BaseModel):
+    medicine_id: str
+    medicine_name: str
+
+class MedicineSuggestResponse(BaseModel):
+    results: list[MedicineSuggestion]

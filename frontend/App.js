@@ -16,6 +16,7 @@ import { PAGE_TITLES } from "./src/constants/tabs";
 import { ChatScreen } from "./src/screens/ChatScreen";
 import { OcrScreen } from "./src/screens/OcrScreen";
 import { PlaceholderScreen } from "./src/screens/PlaceholderScreen";
+import { SearchScreen } from "./src/screens/SearchScreen";
 import { styles } from "./src/styles/sharedStyles";
 
 const initialMessages = [
@@ -26,6 +27,8 @@ const initialMessages = [
   },
 ];
 
+const DEFAULT_MEDICINE_NAME = "뉴렙톨캡슐300밀리그램(가바펜틴)";
+
 export default function App() {
   const [activeTab, setActiveTab] = useState("chat");
   const [serverStatus, setServerStatus] = useState("checking");
@@ -33,6 +36,11 @@ export default function App() {
   const [question, setQuestion] = useState("");
   const [messages, setMessages] = useState(initialMessages);
   const [chatLoading, setChatLoading] = useState(false);
+  const [selectedMedicine, setSelectedMedicine] = useState(null);
+
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState([]);
+  const [searchLoading, setSearchLoading] = useState(false);
 
   const [selectedFile, setSelectedFile] = useState(null);
   const [ocrResult, setOcrResult] = useState("");
@@ -60,6 +68,12 @@ export default function App() {
     const trimmedQuestion = question.trim();
     if (!trimmedQuestion || chatLoading) return;
 
+    const medicineName =
+      selectedMedicine?.medicine_name || DEFAULT_MEDICINE_NAME;
+    const questionWithoutMention =
+      trimmedQuestion.replace(/(^|\s)@[^\s@]+/g, " ").replace(/\s+/g, " ").trim() ||
+      trimmedQuestion;
+
     setQuestion("");
     setMessages((current) => [
       ...current,
@@ -77,7 +91,11 @@ export default function App() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ question: trimmedQuestion }),
+        body: JSON.stringify({
+          medicine_name: medicineName,
+          question: questionWithoutMention,
+          top_k: 5,
+        }),
       });
 
       if (!response.ok) {
@@ -85,6 +103,7 @@ export default function App() {
       }
 
       const data = await response.json();
+
       setMessages((current) => [
         ...current,
         {
@@ -104,6 +123,38 @@ export default function App() {
       ]);
     } finally {
       setChatLoading(false);
+    }
+  }
+
+  async function submitSearch() {
+    const trimmedQuery = searchQuery.trim();
+    if (!trimmedQuery || searchLoading) return;
+
+    setSearchLoading(true);
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/search`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          medicine_name: selectedMedicine?.medicine_name || DEFAULT_MEDICINE_NAME,
+          query: trimmedQuery,
+          top_k: 5,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("search request failed");
+      }
+
+      const data = await response.json();
+      setSearchResults(data.results || []);
+    } catch {
+      Alert.alert("검색 실패", "FastAPI 서버 연결을 확인해 주세요.");
+    } finally {
+      setSearchLoading(false);
     }
   }
 
@@ -163,9 +214,12 @@ export default function App() {
 
     if (activeTab === "search") {
       return (
-        <PlaceholderScreen
-          title="의약품 검색"
-          description="검색 화면은 나중에 연결할 임시 페이지입니다."
+        <SearchScreen
+          searchQuery={searchQuery}
+          searchResults={searchResults}
+          searchLoading={searchLoading}
+          onChangeSearchQuery={setSearchQuery}
+          onSubmitSearch={submitSearch}
         />
       );
     }
@@ -196,7 +250,9 @@ export default function App() {
         messages={messages}
         question={question}
         chatLoading={chatLoading}
+        selectedMedicine={selectedMedicine}
         onChangeQuestion={setQuestion}
+        onSelectMedicine={setSelectedMedicine}
         onSubmitChat={submitChat}
       />
     );
