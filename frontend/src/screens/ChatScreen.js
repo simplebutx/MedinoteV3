@@ -172,7 +172,7 @@ export function ChatScreen({
         <TextInput
           value={question}
           onChangeText={onChangeQuestion}
-          placeholder="예: 타이레놀 복용 시 주의할 점은?"
+          placeholder="@로 약이름을 선택하세요"
           placeholderTextColor="#7a878e"
           style={styles.input}
           returnKeyType="send"

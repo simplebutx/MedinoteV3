@@ -1,15 +1,12 @@
-import logging
-
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
 
 from app.core.config import settings
-from app.services.medicine_search_service import search_medicines
+from app.services.medicine_search_service import retrieve_candidates
+from app.services.reranker_service import rerank_candidates
 
 CHAT_MODEL = "gpt-4o-mini"
-
-logger = logging.getLogger("uvicorn.error")
 
 
 def get_chat_model():
@@ -39,21 +36,6 @@ def build_context(search_results: list[dict]) -> str:
         )
 
     return "\n\n".join(context_chunks)
-
-
-# 로그
-def log_search_results(search_results: list[dict]) -> None:
-    logger.info("chat debug search results count=%s", len(search_results))
-
-    for index, result in enumerate(search_results, start=1):
-        logger.info(
-            "chat debug search result %s | score=%s | document_type=%s | medicine_id=%s | text=%s",
-            index,
-            result.get("score"),
-            result.get("document_type"),
-            result.get("medicine_id"),
-            result.get("text"),
-        )
 
 
 def generate_answer_from_context(
@@ -99,13 +81,23 @@ def generate_answer_from_context(
 
 # 메인함수
 def answer_question(medicine_name: str, question: str, top_k: int = 5) -> str:
-    search_results = search_medicines(
+
+    # 검색
+    candidates = retrieve_candidates(
         medicine_name=medicine_name,
         query=question,
         top_k=top_k,
     )
-    log_search_results(search_results)
 
+    # 리랭커
+    search_results = rerank_candidates(
+        query=question,
+        candidates=candidates,
+        top_n=top_k,
+        score_threshold=0.0,
+    )
+
+    # llm 응답 생성
     return generate_answer_from_context(
         medicine_name=medicine_name,
         question=question,

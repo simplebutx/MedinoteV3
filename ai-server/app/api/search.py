@@ -1,11 +1,11 @@
 from fastapi import APIRouter, Query
 
-from app.schemas.search_schema import MedicineSuggestResponse, SearchRequest, SearchResponse
+from app.schemas.search_schema import MedicineSuggestResponse
 from app.services.medicine_catalog_service import suggest_medicines
-from app.services.medicine_search_service import search_medicines
 
 router = APIRouter(prefix="/search", tags=["Search"])
 
+# 약이름 자동완성
 @router.get("/medicines", response_model=MedicineSuggestResponse)
 def suggest_medicine_names(
     q: str = Query(default="", description="Medicine name search keyword"),
@@ -14,13 +14,3 @@ def suggest_medicine_names(
     return MedicineSuggestResponse(
         results=suggest_medicines(query=q, limit=limit)
     )
-
-@router.post("", response_model=SearchResponse)
-def search(request: SearchRequest):
-    results = search_medicines(
-        medicine_name=request.medicine_name,
-        query=request.query,
-        top_k=request.top_k,
-    )
-
-    return SearchResponse(results=results)
