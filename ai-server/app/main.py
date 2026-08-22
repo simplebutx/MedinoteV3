@@ -6,6 +6,10 @@ from app.api.ocr import router as ocr_router
 from app.core.config import settings
 from app.api.health import router as health_router
 from app.api.search import router as search_router
+from app.db.mysql import Base, engine
+from app.models import chat
+
+Base.metadata.create_all(bind=engine)
 
 app = FastAPI(
     title=settings.app_name,

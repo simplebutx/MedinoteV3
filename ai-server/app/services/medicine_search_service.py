@@ -11,6 +11,7 @@ logger = logging.getLogger("uvicorn.error")
 EMBEDDING_MODEL = "text-embedding-3-small"
 DEFAULT_SOURCE_NAME = "의약품안전나라"
 DEFAULT_SOURCE_URL = "https://nedrug.mfds.go.kr"
+VECTOR_SCORE_THRESHOLD = 0.2
 
 # 질문 엠베딩 -> 검색 -> 반환
 
@@ -48,7 +49,7 @@ def log_candidates(candidates: list[dict]) -> None:
 def retrieve_candidates(medicine_name: str, query: str, top_k: int = 5):
     vector_store = get_vector_store()
 
-    candidate_k = max(top_k * 6, 30)
+    candidate_k = max(top_k * 2, 10)
 
     # Document 내부: page_content, metadata
     # 리턴값: list[tuple[Document, float]] 
@@ -68,7 +69,10 @@ def retrieve_candidates(medicine_name: str, query: str, top_k: int = 5):
 
     candidates = []
 
+    # vector score: 질문 벡터와 문서 벡터 비교 점수 (by Qdrant)
     for doc, score in docs_with_scores:
+        if score < VECTOR_SCORE_THRESHOLD:
+            continue
         metadata = doc.metadata or {}
 
         candidates.append({

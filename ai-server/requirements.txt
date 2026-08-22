@@ -13,3 +13,5 @@ langchain-openai
 langchain-qdrant
 langgraph
 flashrank
+sqlalchemy
+pymysql

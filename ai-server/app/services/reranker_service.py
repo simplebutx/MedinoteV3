@@ -6,7 +6,7 @@ logger = logging.getLogger("uvicorn.error")
 
 RERANK_MODEL = "ms-marco-MultiBERT-L-12"
 DEFAULT_RERANK_TOP_N = 5
-DEFAULT_RERANK_SCORE_THRESHOLD = 0.0  # 제거 기준점 (정확도)
+DEFAULT_RERANK_SCORE_THRESHOLD = 0.2  # 제거 기준점 (정확도)
 
 
 def get_reranker(

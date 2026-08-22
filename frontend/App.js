@@ -29,6 +29,17 @@ const initialMessages = [
 
 const DEFAULT_MEDICINE_NAME = "뉴렙톨캡슐300밀리그램(가바펜틴)";
 
+function removeSelectedMedicineMention(text, medicine) {
+  if (!medicine) {
+    return text.trim();
+  }
+
+  return text
+    .replace(`@${medicine.medicine_name}`, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 export default function App() {
   const [activeTab, setActiveTab] = useState("chat");
   const [serverStatus, setServerStatus] = useState("checking");
@@ -36,6 +47,10 @@ export default function App() {
   const [question, setQuestion] = useState("");
   const [messages, setMessages] = useState(initialMessages);
   const [chatLoading, setChatLoading] = useState(false);
+  const [chatRooms, setChatRooms] = useState([]);
+  const [activeRoomId, setActiveRoomId] = useState(null);
+  const [chatView, setChatView] = useState("list");
+  const [roomLoading, setRoomLoading] = useState(false);
   const [selectedMedicine, setSelectedMedicine] = useState(null);
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -56,6 +71,8 @@ export default function App() {
       })
       .then(() => setServerStatus("online"))
       .catch(() => setServerStatus("offline"));
+
+    loadChatRooms();
   }, []);
 
   const statusText = useMemo(() => {
@@ -64,15 +81,150 @@ export default function App() {
     return "AI 서버 확인 중";
   }, [serverStatus]);
 
+  function mapServerMessage(message) {
+    return {
+      id: String(message.id),
+      role: message.role,
+      text: message.content,
+      sources: message.sources || [],
+    };
+  }
+
+  async function loadChatRooms() {
+    try {
+      const response = await fetch(`${API_BASE_URL}/chat/rooms`);
+
+      if (!response.ok) {
+        throw new Error("room list request failed");
+      }
+
+      const rooms = await response.json();
+      setChatRooms(rooms);
+    } catch {
+      setChatRooms([]);
+    }
+  }
+
+  async function createChatRoom() {
+    setRoomLoading(true);
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/chat/rooms`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          title: null,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("create room request failed");
+      }
+
+      const room = await response.json();
+      setChatRooms((current) => [room, ...current]);
+      setActiveRoomId(room.id);
+      setChatView("detail");
+      setMessages(initialMessages);
+
+      return room;
+    } catch {
+      Alert.alert("채팅방 생성 실패", "FastAPI 서버 연결을 확인해 주세요.");
+      return null;
+    } finally {
+      setRoomLoading(false);
+    }
+  }
+
+  async function loadRoomMessages(roomId) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/chat/rooms/${roomId}/messages`);
+
+      if (!response.ok) {
+        throw new Error("messages request failed");
+      }
+
+      const data = await response.json();
+      const nextMessages = data.map(mapServerMessage);
+      setMessages(nextMessages.length > 0 ? nextMessages : initialMessages);
+    } catch {
+      Alert.alert("메시지 조회 실패", "채팅방 메시지를 불러오지 못했습니다.");
+    }
+  }
+
+  async function selectChatRoom(roomId) {
+    if (roomLoading) return;
+
+    setRoomLoading(true);
+    setActiveRoomId(roomId);
+    setSelectedMedicine(null);
+    await loadRoomMessages(roomId);
+    setChatView("detail");
+    setRoomLoading(false);
+  }
+
+  async function showChatRoomList() {
+    setChatView("list");
+    setQuestion("");
+    setSelectedMedicine(null);
+    await loadChatRooms();
+  }
+
+  function changeChatQuestion(nextQuestion) {
+    setQuestion(nextQuestion);
+  }
+
+  async function deleteActiveChatRoom() {
+    if (!activeRoomId || roomLoading) return;
+
+    setRoomLoading(true);
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/chat/rooms/${activeRoomId}`, {
+        method: "DELETE",
+      });
+
+      if (!response.ok) {
+        throw new Error("delete room request failed");
+      }
+
+      const nextRooms = chatRooms.filter((room) => room.id !== activeRoomId);
+      setChatRooms(nextRooms);
+
+      setActiveRoomId(null);
+      setMessages(initialMessages);
+      setChatView("list");
+    } catch {
+      Alert.alert("채팅방 삭제 실패", "채팅방을 삭제하지 못했습니다.");
+    } finally {
+      setRoomLoading(false);
+    }
+  }
+
   async function submitChat() {
     const trimmedQuestion = question.trim();
     if (!trimmedQuestion || chatLoading) return;
 
-    const medicineName =
-      selectedMedicine?.medicine_name || DEFAULT_MEDICINE_NAME;
-    const questionWithoutMention =
-      trimmedQuestion.replace(/(^|\s)@[^\s@]+/g, " ").replace(/\s+/g, " ").trim() ||
-      trimmedQuestion;
+    const questionWithoutMention = removeSelectedMedicineMention(
+      trimmedQuestion,
+      selectedMedicine
+    );
+
+    if (!questionWithoutMention) {
+      Alert.alert("질문 입력 필요", "선택한 의약품 뒤에 질문을 입력해 주세요.");
+      return;
+    }
+
+    let roomId = activeRoomId;
+
+    if (!roomId) {
+      const room = await createChatRoom();
+
+      if (!room) return;
+      roomId = room.id;
+    }
 
     setQuestion("");
     setMessages((current) => [
@@ -92,7 +244,9 @@ export default function App() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          medicine_name: medicineName,
+          room_id: roomId,
+          medicine_id: selectedMedicine?.medicine_id ?? null,
+          medicine_name: selectedMedicine?.medicine_name ?? null,
           question: questionWithoutMention,
           top_k: 5,
         }),
@@ -111,8 +265,11 @@ export default function App() {
           role: "assistant",
           text: data.answer || "답변을 받지 못했습니다.",
           sources: data.sources || [],
+          fallbacks: data.fallbacks || [],
         },
       ]);
+      setActiveRoomId(data.room_id);
+      loadChatRooms();
     } catch {
       setMessages((current) => [
         ...current,
@@ -249,10 +406,18 @@ export default function App() {
     return (
       <ChatScreen
         messages={messages}
+        chatRooms={chatRooms}
+        activeRoomId={activeRoomId}
+        chatView={chatView}
         question={question}
         chatLoading={chatLoading}
+        roomLoading={roomLoading}
         selectedMedicine={selectedMedicine}
-        onChangeQuestion={setQuestion}
+        onCreateRoom={createChatRoom}
+        onDeleteRoom={deleteActiveChatRoom}
+        onSelectRoom={selectChatRoom}
+        onShowRoomList={showChatRoomList}
+        onChangeQuestion={changeChatQuestion}
         onSelectMedicine={setSelectedMedicine}
         onSubmitChat={submitChat}
       />
