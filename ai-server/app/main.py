@@ -9,6 +9,7 @@ from app.api.search import router as search_router
 from app.db.mysql import Base, engine
 from app.models import chat
 
+# DB 테이블 자동생성
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(
