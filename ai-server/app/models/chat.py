@@ -1,4 +1,3 @@
-# app/models/chat.py
 from sqlalchemy import Column, DateTime, ForeignKey, String, Text, BigInteger, JSON
 from sqlalchemy.sql import func
 

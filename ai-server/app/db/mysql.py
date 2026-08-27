@@ -1,6 +1,5 @@
-# app/db/mysql.py
 from sqlalchemy import create_engine
-from sqlalchemy.orm import Session, declarative_base, sessionmaker
+from sqlalchemy.orm import declarative_base, sessionmaker
 
 from app.core.config import settings
 
@@ -13,6 +12,7 @@ DATABASE_URL = (
 engine = create_engine(DATABASE_URL, pool_pre_ping=True)
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
 
+# ORM 모델 클래스들의 공통 부모 Base 생성
 Base = declarative_base()
 
 def get_db():

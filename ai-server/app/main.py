@@ -7,9 +7,9 @@ from app.core.config import settings
 from app.api.health import router as health_router
 from app.api.search import router as search_router
 from app.db.mysql import Base, engine
-from app.models import chat
 
 # DB 테이블 자동생성
+# Base.metadata 내부에 테이블 정보
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(

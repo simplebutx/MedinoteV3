@@ -1,6 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy.orm import Session
-from app.services.rewrite_service import rewrite_question
 
 from app.crud.chat import (
     create_chat_room,
@@ -25,6 +24,7 @@ from app.schemas.chat_schema import (
 from app.services.chat_graph_service import answer_question_with_graph
 
 router = APIRouter(prefix="/chat", tags=["Chat"])
+CHAT_TOP_K = 5
 
 @router.post("", response_model=ChatResponse)
 def chat(
@@ -44,12 +44,14 @@ def chat(
             title=request.question[:30],
         )
 
+    # 쿼리재작성용 최근 메시지 조회
     recent_messages = get_recent_chat_messages(
         db=db,
         room_id=room.id,
         limit=10,
     )
 
+    # 메시지 저장
     create_chat_message(
         db=db,
         room_id=room.id,
@@ -65,6 +67,7 @@ def chat(
             "@로 의약품을 선택하거나 질문에 약 이름을 포함해 주세요."
         )
 
+        # 메시지 저장
         create_chat_message(
             db=db,
             room_id=room.id,
@@ -86,6 +89,7 @@ def chat(
         )
 
     if request.medicine_name:
+        # '가장 최근약' 업데이트
         room = update_chat_room_last_medicine(
             db=db,
             room_id=room.id,
@@ -93,13 +97,15 @@ def chat(
             medicine_id=request.medicine_id,
         )
 
+    # 랭그래프 실행
     result = answer_question_with_graph(
         medicine_name=medicine_name,
         question=request.question,
         messages=recent_messages,
-        top_k=request.top_k,
+        top_k=CHAT_TOP_K,
     )
 
+    # 메시지 저장
     create_chat_message(
         db=db,
         room_id=room.id,
@@ -109,6 +115,7 @@ def chat(
     )
 
     if not room.title:
+        # 채팅방 제목 수정
         room = update_chat_room_title(
             db=db,
             room_id=room.id,

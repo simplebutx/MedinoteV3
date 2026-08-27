@@ -1,13 +1,16 @@
 from datetime import datetime
+from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 class ChatRequest(BaseModel):
-    room_id: str | None = None
+    model_config = ConfigDict(extra="forbid")
+
+    room_id: str
     medicine_name: str | None = None
     medicine_id: str | None = None
-    question: str = Field(min_length=1)
-    top_k: int = 5
+    question: str = Field(min_length=1, max_length=500)
+    language: Literal["ko", "en"] = "ko"
 
 class ChatSource(BaseModel):
     name: str | None = None
@@ -42,7 +45,7 @@ class ChatRoomResponse(BaseModel):
     class Config:
         from_attributes = True
 
-
+# 채팅방 메시지 조회
 class ChatMessageResponse(BaseModel):
     id: int
     room_id: str
