@@ -3,8 +3,8 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
 
 from app.core.config import settings
-from app.services.medicine_search_service import retrieve_candidates
-from app.services.reranker_service import rerank_candidates
+from app.services.chatbot.medicine_search_service import retrieve_candidates
+from app.services.chatbot.reranker_service import rerank_candidates
 
 CHAT_MODEL = "gpt-4o-mini"
 

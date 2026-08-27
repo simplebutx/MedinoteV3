@@ -7,6 +7,7 @@ import { AuthScreenShell } from '@/components/auth/auth-screen-shell';
 import { ThemedText } from '@/components/ui/themed-text';
 import { Spacing } from '@/constants/theme';
 import { useAuth } from '@/providers/auth-provider';
+import { login } from '@/services/auth-api';
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -21,14 +22,22 @@ export default function LoginScreen() {
     setErrorMessage('');
 
     try {
-      const resolvedEmail = email.trim() || 'demo@medinote.local';
-      const resolvedName = resolvedEmail.split('@')[0] || '사용자';
+      const trimmedEmail = email.trim();
+
+      if (!trimmedEmail || !password.trim()) {
+        throw new Error('이메일과 비밀번호를 입력해 주세요.');
+      }
+
+      const loginResult = await login({
+        email: trimmedEmail,
+        password,
+      });
 
       await signIn({
-        email: resolvedEmail,
-        name: resolvedName,
-        role: 'USER',
-        accessToken: 'mock-access-token',
+        email: loginResult.email,
+        name: loginResult.username ?? loginResult.email.split('@')[0] ?? '사용자',
+        role: loginResult.role,
+        accessToken: loginResult.access_token,
       });
 
       router.replace('/(tabs)');

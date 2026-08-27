@@ -16,6 +16,7 @@ import { AuthScreenShell } from '@/components/auth/auth-screen-shell';
 import { ThemedText } from '@/components/ui/themed-text';
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { signup } from '@/services/auth-api';
 
 type GenderValue = 'MALE' | 'FEMALE';
 
@@ -58,6 +59,21 @@ export default function SignUpScreen() {
     setErrorMessage('');
 
     try {
+      const trimmedName = name.trim();
+      const trimmedEmail = email.trim();
+
+      if (!trimmedName || !trimmedEmail || !password.trim()) {
+        throw new Error('이름, 이메일, 비밀번호를 입력해 주세요.');
+      }
+
+      await signup({
+        email: trimmedEmail,
+        password,
+        username: trimmedName,
+        birth_date: birthDate.trim() || null,
+        gender,
+      });
+
       router.replace('/login');
     } catch (error) {
       setErrorMessage(

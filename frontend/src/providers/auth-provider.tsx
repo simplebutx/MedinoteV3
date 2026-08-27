@@ -1,4 +1,12 @@
-import { createContext, PropsWithChildren, useContext, useEffect, useMemo, useState } from 'react';
+import {
+  createContext,
+  PropsWithChildren,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
 
 import {
   clearStoredSession,
@@ -60,40 +68,48 @@ export function AuthProvider({ children }: PropsWithChildren) {
     };
   }, []);
 
+  const signIn = useCallback(async (payload: AuthUser) => {
+    // 로그인 성공 시 메모리 상태와 로컬 저장소를 함께 갱신한다.
+    setUser(payload);
+    await storeSession(payload);
+  }, []);
+
+  const signUp = useCallback(async (payload: AuthUser) => {
+    // 필요 시 회원가입 직후 로그인 상태로 이어붙일 때 사용한다.
+    setUser(payload);
+    await storeSession(payload);
+  }, []);
+
+  const updateUser = useCallback(async (payload: Partial<AuthUser>) => {
+    setUser((currentUser) => {
+      if (!currentUser) {
+        return currentUser;
+      }
+
+      // 보호 API 응답으로 받은 최신 사용자 정보를 덮어쓴다.
+      const nextUser = { ...currentUser, ...payload };
+      void storeSession(nextUser);
+      return nextUser;
+    });
+  }, []);
+
+  const signOut = useCallback(async () => {
+    // 로그아웃 시 메모리와 저장소를 모두 비운다.
+    setUser(null);
+    await clearStoredSession();
+  }, []);
+
   const value = useMemo<AuthContextValue>(
     () => ({
       isAuthenticated: user !== null,
       isHydrating,
       user,
-      signIn: async (payload) => {
-        // 로그인 성공 시 메모리 상태와 로컬 저장소를 함께 갱신한다.
-        setUser(payload);
-        await storeSession(payload);
-      },
-      signUp: async (payload) => {
-        // 필요 시 회원가입 직후 로그인 상태로 이어붙일 때 사용한다.
-        setUser(payload);
-        await storeSession(payload);
-      },
-      updateUser: async (payload) => {
-        setUser((currentUser) => {
-          if (!currentUser) {
-            return currentUser;
-          }
-
-          // 보호 API 응답으로 받은 최신 사용자 정보를 덮어쓴다.
-          const nextUser = { ...currentUser, ...payload };
-          void storeSession(nextUser);
-          return nextUser;
-        });
-      },
-      signOut: async () => {
-        // 로그아웃 시 메모리와 저장소를 모두 비운다.
-        setUser(null);
-        await clearStoredSession();
-      },
+      signIn,
+      signUp,
+      updateUser,
+      signOut,
     }),
-    [isHydrating, user]
+    [isHydrating, signIn, signOut, signUp, updateUser, user]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

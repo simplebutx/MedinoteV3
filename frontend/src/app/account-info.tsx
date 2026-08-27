@@ -1,4 +1,5 @@
 import { useRouter } from "expo-router";
+import { useEffect, useState } from "react";
 import { ScrollView, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -8,11 +9,60 @@ import { ThemedText } from "@/components/ui/themed-text";
 import { ThemedView } from "@/components/ui/themed-view";
 import { Spacing, TopOverlayClearance } from "@/constants/theme";
 import { useAuth } from "@/providers/auth-provider";
+import { fetchMyProfile } from "@/services/auth-api";
 
 export default function AccountInfoScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { user } = useAuth();
+  const { signOut, updateUser, user } = useAuth();
+  const [isLoadingProfile, setIsLoadingProfile] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadProfile() {
+      setIsLoadingProfile(true);
+      setErrorMessage("");
+
+      try {
+        const profile = await fetchMyProfile();
+
+        if (!mounted) {
+          return;
+        }
+
+        await updateUser({
+          email: profile.email,
+          name: profile.username ?? profile.email.split("@")[0] ?? "사용자",
+          role: profile.role,
+        });
+      } catch (error) {
+        if (!mounted) {
+          return;
+        }
+
+        setErrorMessage(
+          error instanceof Error && error.message
+            ? error.message
+            : "회원 정보를 불러오지 못했어요."
+        );
+
+        await signOut();
+        router.replace("/login");
+      } finally {
+        if (mounted) {
+          setIsLoadingProfile(false);
+        }
+      }
+    }
+
+    void loadProfile();
+
+    return () => {
+      mounted = false;
+    };
+  }, [router, signOut, updateUser]);
 
   return (
     <AppScreen showTopAlert={false}>
@@ -47,7 +97,9 @@ export default function AccountInfoScreen() {
             <ThemedText themeColor="textSecondary" style={styles.label}>
               이름
             </ThemedText>
-            <ThemedText style={styles.value}>{user?.name ?? "-"}</ThemedText>
+            <ThemedText style={styles.value}>
+              {isLoadingProfile ? "불러오는 중..." : user?.name ?? "-"}
+            </ThemedText>
           </View>
 
           <View style={styles.divider} />
@@ -56,9 +108,17 @@ export default function AccountInfoScreen() {
             <ThemedText themeColor="textSecondary" style={styles.label}>
               이메일
             </ThemedText>
-            <ThemedText style={styles.value}>{user?.email ?? "-"}</ThemedText>
+            <ThemedText style={styles.value}>
+              {isLoadingProfile ? "불러오는 중..." : user?.email ?? "-"}
+            </ThemedText>
           </View>
         </ThemedView>
+
+        {errorMessage ? (
+          <ThemedText themeColor="textSecondary" style={styles.errorText}>
+            {errorMessage}
+          </ThemedText>
+        ) : null}
       </ScrollView>
     </AppScreen>
   );
@@ -114,5 +174,9 @@ const styles = StyleSheet.create({
     marginLeft: Spacing.three,
     height: 1,
     backgroundColor: "rgba(255,255,255,0.08)",
+  },
+  errorText: {
+    fontSize: 14,
+    lineHeight: 20,
   },
 });

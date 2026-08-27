@@ -1,7 +1,7 @@
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 
-from app.services.chat_service import get_chat_model
+from app.services.chatbot.chat_service import get_chat_model
 
 
 def build_chat_history(messages) -> str:

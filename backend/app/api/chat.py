@@ -21,7 +21,7 @@ from app.schemas.chat_schema import (
     CreateChatRoomRequest,
     UpdateChatRoomRequest,
 )
-from app.services.chat_graph_service import answer_question_with_graph
+from app.services.chatbot.chat_graph_service import answer_question_with_graph
 
 router = APIRouter(prefix="/chat", tags=["Chat"])
 CHAT_TOP_K = 5

@@ -2,19 +2,19 @@ from typing import TypedDict
 
 from langgraph.graph import END, START, StateGraph
 
-from app.services.rewrite_service import (
+from app.services.chatbot.rewrite_service import (
     log_rewritten_question,
     rewrite_question,
 )
-from app.services.chat_service import (
+from app.services.chatbot.chat_service import (
     build_context,
     generate_answer_from_context,
 )
-from app.services.medicine_search_service import (
+from app.services.chatbot.medicine_search_service import (
     retrieve_candidates,
     log_candidates,
 )
-from app.services.reranker_service import (
+from app.services.chatbot.reranker_service import (
     rerank_candidates,
     log_reranked_candidates,
 )

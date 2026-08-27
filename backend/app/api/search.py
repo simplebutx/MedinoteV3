@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Query
 
 from app.schemas.search_schema import MedicineSuggestResponse
-from app.services.medicine_catalog_service import suggest_medicines
+from app.services.chatbot.medicine_catalog_service import suggest_medicines
 
 router = APIRouter(prefix="/search", tags=["Search"])
 

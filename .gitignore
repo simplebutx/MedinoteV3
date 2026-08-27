@@ -10,6 +10,7 @@ htmlcov/
 
 # Virtual environment
 .venv/
+backend/.venv/
 ai-server/.venv/
 
 # Environment variables
@@ -19,10 +20,12 @@ ai-server/.venv/
 
 # Local data files
 data/raw/
+backend/data/raw/
 ai-server/data/raw/
 
 # Qdrant / Docker local volumes if created in project
 qdrant_storage/
+backend/qdrant_storage/
 ai-server/qdrant_storage/
 
 # OS / editor
