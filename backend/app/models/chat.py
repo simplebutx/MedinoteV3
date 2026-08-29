@@ -1,4 +1,4 @@
-from sqlalchemy import Column, DateTime, ForeignKey, String, Text, BigInteger, JSON
+from sqlalchemy import Column, DateTime, ForeignKey, String, Text, BigInteger, JSON, Integer
 from sqlalchemy.sql import func
 
 from app.db.mysql import Base
@@ -7,6 +7,8 @@ class ChatRoom(Base):
     __tablename__ = "chat_rooms"
 
     id = Column(String(36), primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+
     title = Column(String(255), nullable=True)
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)

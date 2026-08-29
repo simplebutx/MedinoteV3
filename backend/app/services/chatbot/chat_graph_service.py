@@ -6,7 +6,7 @@ from app.services.chatbot.rewrite_service import (
     log_rewritten_question,
     rewrite_question,
 )
-from app.services.chatbot.chat_service import (
+from app.services.chatbot.answer_generation_service import (
     build_context,
     generate_answer_from_context,
 )

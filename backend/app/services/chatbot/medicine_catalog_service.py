@@ -4,7 +4,7 @@ import json
 from functools import lru_cache
 from pathlib import Path
 
-CHUNKS_PATH = Path(__file__).resolve().parents[2] / "data" / "processed" / "medicine_chunks.jsonl"
+CHUNKS_PATH = Path(__file__).resolve().parents[3] / "data" / "processed" / "medicine_chunks.jsonl"
 
 
 def normalize_medicine_name(value: str) -> str:

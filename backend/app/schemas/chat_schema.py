@@ -6,7 +6,7 @@ from pydantic import BaseModel, ConfigDict, Field
 class ChatRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    room_id: str
+    room_id: str | None = None
     medicine_name: str | None = None
     medicine_id: str | None = None
     question: str = Field(min_length=1, max_length=500)

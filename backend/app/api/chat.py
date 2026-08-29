@@ -1,17 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException, Response
+from fastapi import APIRouter, Depends, Response
 from sqlalchemy.orm import Session
+from app.dependencies.auth import get_current_user
+from app.models.user import User
 
-from app.crud.chat import (
-    create_chat_room,
-    create_chat_message,
-    delete_chat_room,
-    get_chat_messages,
-    get_chat_room,
-    get_chat_rooms,
-    get_recent_chat_messages,
-    update_chat_room_title,
-    update_chat_room_last_medicine,
-)
 from app.db.mysql import get_db
 from app.schemas.chat_schema import (
     ChatMessageResponse,
@@ -21,134 +12,55 @@ from app.schemas.chat_schema import (
     CreateChatRoomRequest,
     UpdateChatRoomRequest,
 )
-from app.services.chatbot.chat_graph_service import answer_question_with_graph
+from app.services.chat import chat_service
 
 router = APIRouter(prefix="/chat", tags=["Chat"])
-CHAT_TOP_K = 5
 
 @router.post("", response_model=ChatResponse)
 def chat(
     request: ChatRequest,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
-    room = None
-
-    if request.room_id:
-        room = get_chat_room(db=db, room_id=request.room_id)
-
-        if room is None:
-            raise HTTPException(status_code=404, detail="Chat room not found")
-    else:
-        room = create_chat_room(
-            db=db,
-            title=request.question[:30],
-        )
-
-    # 쿼리재작성용 최근 메시지 조회
-    recent_messages = get_recent_chat_messages(
+    return chat_service.send_chat_message(
         db=db,
-        room_id=room.id,
-        limit=10,
+        user_id=current_user.id,
+        request=request,
     )
-
-    # 메시지 저장
-    create_chat_message(
-        db=db,
-        room_id=room.id,
-        role="user",
-        content=request.question,
-    )
-
-    medicine_name = request.medicine_name or room.last_medicine_name
-
-    if not medicine_name:
-        fallback_answer = (
-            "의약품명을 확인할 수 없습니다. "
-            "@로 의약품을 선택하거나 질문에 약 이름을 포함해 주세요."
-        )
-
-        # 메시지 저장
-        create_chat_message(
-            db=db,
-            room_id=room.id,
-            role="assistant",
-            content=fallback_answer,
-            sources=[],
-        )
-
-        return ChatResponse(
-            room_id=room.id,
-            answer=fallback_answer,
-            sources=[],
-            fallbacks=[
-                {
-                    "step": "validate_medicine",
-                    "reason": "의약품명이 없어 문서 검색을 진행하지 않았습니다.",
-                }
-            ],
-        )
-
-    if request.medicine_name:
-        # '가장 최근약' 업데이트
-        room = update_chat_room_last_medicine(
-            db=db,
-            room_id=room.id,
-            medicine_name=request.medicine_name,
-            medicine_id=request.medicine_id,
-        )
-
-    # 랭그래프 실행
-    result = answer_question_with_graph(
-        medicine_name=medicine_name,
-        question=request.question,
-        messages=recent_messages,
-        top_k=CHAT_TOP_K,
-    )
-
-    # 메시지 저장
-    create_chat_message(
-        db=db,
-        room_id=room.id,
-        role="assistant",
-        content=result["answer"],
-        sources=result.get("sources", []),
-    )
-
-    if not room.title:
-        # 채팅방 제목 수정
-        room = update_chat_room_title(
-            db=db,
-            room_id=room.id,
-            title=request.question[:30],
-        )
-
-    return ChatResponse(room_id=room.id, **result)
 
 
 @router.post("/rooms", response_model=ChatRoomResponse)
 def create_room(
     request: CreateChatRoomRequest,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
-    return create_chat_room(db=db, title=request.title)
+    return chat_service.create_room(
+        db=db,
+        user_id=current_user.id,
+        request=request,
+    )
 
 
 @router.get("/rooms", response_model=list[ChatRoomResponse])
-def read_rooms(db: Session = Depends(get_db)):
-    return get_chat_rooms(db)
+def read_rooms(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return chat_service.read_rooms(db=db, user_id=current_user.id)
 
 
 @router.get("/rooms/{room_id}", response_model=ChatRoomResponse)
 def read_room(
     room_id: str,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
-    room = get_chat_room(db, room_id)
-
-    if room is None:
-        raise HTTPException(status_code=404, detail="Chat room not found")
-
-    return room
+    return chat_service.read_room(
+        db=db,
+        user_id=current_user.id,
+        room_id=room_id,
+    )
 
 
 @router.patch("/rooms/{room_id}", response_model=ChatRoomResponse)
@@ -156,28 +68,27 @@ def update_room(
     room_id: str,
     request: UpdateChatRoomRequest,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
-    room = update_chat_room_title(
+    return chat_service.update_room(
         db=db,
+        user_id=current_user.id,
         room_id=room_id,
-        title=request.title,
+        request=request,
     )
-
-    if room is None:
-        raise HTTPException(status_code=404, detail="Chat room not found")
-
-    return room
 
 
 @router.delete("/rooms/{room_id}", status_code=204)
 def delete_room(
     room_id: str,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
-    deleted = delete_chat_room(db=db, room_id=room_id)
-
-    if not deleted:
-        raise HTTPException(status_code=404, detail="Chat room not found")
+    chat_service.delete_room(
+        db=db,
+        user_id=current_user.id,
+        room_id=room_id,
+    )
 
     return Response(status_code=204)
 
@@ -186,10 +97,10 @@ def delete_room(
 def read_room_messages(
     room_id: str,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
-    room = get_chat_room(db, room_id)
-
-    if room is None:
-        raise HTTPException(status_code=404, detail="Chat room not found")
-
-    return get_chat_messages(db=db, room_id=room_id)
+    return chat_service.read_room_messages(
+        db=db,
+        user_id=current_user.id,
+        room_id=room_id,
+    )

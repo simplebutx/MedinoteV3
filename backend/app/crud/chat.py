@@ -9,10 +9,12 @@ from app.models.chat import ChatMessage, ChatRoom
 # 채팅방 만들기
 def create_chat_room(
     db: Session,
+    user_id: int,
     title: str | None = None,
 ) -> ChatRoom:
     room = ChatRoom(
         id=str(uuid4()),
+        user_id=user_id,
         title=title,
     )
 
@@ -23,9 +25,10 @@ def create_chat_room(
     return room
 
 # 채팅방 목록 보기
-def get_chat_rooms(db: Session) -> list[ChatRoom]:
+def get_chat_rooms(db: Session, user_id: int) -> list[ChatRoom]:
     stmt = (
         select(ChatRoom)
+        .where(ChatRoom.user_id == user_id)
         .order_by(ChatRoom.updated_at.desc())
     )
 
@@ -35,8 +38,12 @@ def get_chat_rooms(db: Session) -> list[ChatRoom]:
 def get_chat_room(
     db: Session,
     room_id: str,
+    user_id: int | None = None,
 ) -> ChatRoom | None:
     stmt = select(ChatRoom).where(ChatRoom.id == room_id)
+
+    if user_id is not None:
+        stmt = stmt.where(ChatRoom.user_id == user_id)
 
     return db.scalar(stmt)
 
@@ -44,9 +51,10 @@ def get_chat_room(
 def update_chat_room_title(
     db: Session,
     room_id: str,
+    user_id: int | None,
     title: str,
 ) -> ChatRoom | None:
-    room = get_chat_room(db, room_id)
+    room = get_chat_room(db=db, room_id=room_id, user_id=user_id)
 
     if room is None:
         return None
@@ -61,8 +69,9 @@ def update_chat_room_title(
 def delete_chat_room(
     db: Session,
     room_id: str,
+    user_id: int,
 ) -> bool:
-    room = get_chat_room(db, room_id)
+    room = get_chat_room(db=db, room_id=room_id, user_id=user_id)
 
     if room is None:
         return False

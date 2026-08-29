@@ -6,7 +6,7 @@ from sqlalchemy import pool
 from alembic import context
 
 from app.db.mysql import Base
-from app.models import chat
+from app.models import chat, disease_master, user, user_disease, user_health_profile
 from app.db.mysql import DATABASE_URL
 
 # Base 연결

@@ -86,11 +86,8 @@ export function DiseaseListSection() {
 
   const handleCreate = async (disease: DiseaseSuggestResponse) => {
     try {
-      await createMyDisease(disease);
-      setDiseases((prev) => [
-        { id: Date.now(), diseaseCode: disease.diseaseCode, diseaseName: disease.diseaseName },
-        ...prev,
-      ]);
+      const createdDisease = await createMyDisease(disease);
+      setDiseases((prev) => [createdDisease, ...prev]);
       setKeyword('');
       setSuggestions([]);
       setFeedbackMessage('');

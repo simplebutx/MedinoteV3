@@ -112,6 +112,7 @@ export default function ChatbotScreen() {
     const match = question.match(/(?:^|\s)@([^\s@]*)$/);
     return match ? match[1] : null;
   }, [question]);
+  const shouldShowMedicineSuggestions = mentionQuery !== null && mentionQuery.trim().length > 0;
 
   const loadRooms = useCallback(async () => {
     setIsRoomLoading(true);
@@ -519,7 +520,7 @@ export default function ChatbotScreen() {
                   }
                 />
 
-                {(isSuggesting || medicineSuggestions.length > 0) && (
+                {shouldShowMedicineSuggestions && (
                   <ThemedView type="backgroundElement" style={styles.suggestionPanel}>
                     {isSuggesting ? (
                       <View style={styles.suggestionLoadingRow}>
