@@ -3,18 +3,22 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.auth import router as auth_router
 from app.api.chat import router as chat_router
-from app.api.user_health_profile import router as user_health_profile_router
+from app.api.user_health import router as user_health_profile_router
 from app.api.user_disease import router as user_disease_router
 from app.api.ocr import router as ocr_router
 from app.core.config import settings
 from app.api.health import router as health_router
 from app.api.search import router as search_router
+from app.api.user_caution import router as user_caution_profile_router
 from app.db.mysql import Base, engine
 from app.models import chat as chat_models
 from app.models import disease_master as disease_master_models
+from app.models import medicine_info as medicine_info_models
+from app.models import medicine_ingredient as medicine_ingredient_models
 from app.models import user as user_models
-from app.models import user_health_profile as user_health_profile_models
+from app.models import user_caution as user_caution_models
 from app.models import user_disease as user_disease_models
+from app.models import user_health as user_health_profile_models
 
 # DB 테이블 자동생성
 # Base.metadata 내부에 테이블 정보
@@ -48,6 +52,7 @@ app.include_router(search_router)
 app.include_router(auth_router)
 app.include_router(user_health_profile_router)
 app.include_router(user_disease_router)
+app.include_router(user_caution_profile_router)
 
 @app.get("/health")
 def health_check():

@@ -16,6 +16,7 @@ import {
 } from "@/constants/theme";
 import {
   fetchMedicineSearchResult,
+  type MedicineSuggestion,
   type MedicineSearchResponse,
 } from "@/services/medicine-api";
 
@@ -27,13 +28,13 @@ export default function SearchScreen() {
   const [isLoadingResult, setIsLoadingResult] = useState(false);
   const [resultError, setResultError] = useState("");
 
-  const handleSearch = async (keyword: string) => {
-    setSelectedKeyword(keyword);
+  const handleSearch = async (medicine: MedicineSuggestion) => {
+    setSelectedKeyword(medicine.itemName);
     setIsLoadingResult(true);
     setResultError("");
 
     try {
-      const nextResult = await fetchMedicineSearchResult(keyword);
+      const nextResult = await fetchMedicineSearchResult(medicine.itemSeq);
       setResult(nextResult);
     } catch (error) {
       setResult(null);
@@ -80,7 +81,7 @@ export default function SearchScreen() {
             <ThemedView type="backgroundElement" style={styles.feedbackCard}>
               <ActivityIndicator />
               <ThemedText themeColor="textSecondary">
-                Loading result for {selectedKeyword}...
+                {selectedKeyword} 검색 결과를 불러오는 중이에요.
               </ThemedText>
             </ThemedView>
           ) : null}

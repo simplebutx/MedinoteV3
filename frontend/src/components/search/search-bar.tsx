@@ -9,19 +9,22 @@ import {
 
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import { fetchMedicineSuggestions } from '@/services/medicine-api';
+import {
+  fetchMedicineSuggestions,
+  type MedicineSuggestion,
+} from '@/services/medicine-api';
 
 import { ThemedText } from '../ui/themed-text';
 import { ThemedView } from '../ui/themed-view';
 
 type SearchBarProps = {
-  onSearch?: (keyword: string) => void;
+  onSearch?: (medicine: MedicineSuggestion) => void;
 };
 
 export function SearchBar({ onSearch }: SearchBarProps) {
   const theme = useTheme();
   const [keyword, setKeyword] = useState('');
-  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [suggestions, setSuggestions] = useState<MedicineSuggestion[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [hideSuggestions, setHideSuggestions] = useState(false);
@@ -61,17 +64,21 @@ export function SearchBar({ onSearch }: SearchBarProps) {
     };
   }, [keyword]);
 
-  const handleSearch = (nextKeyword: string) => {
-    const trimmedKeyword = nextKeyword.trim();
-
-    if (!trimmedKeyword) {
-      return;
-    }
-
-    setKeyword(trimmedKeyword);
+  const handleSearch = (medicine: MedicineSuggestion) => {
+    setKeyword(medicine.itemName);
     setSuggestions([]);
     setHideSuggestions(true);
-    onSearch?.(trimmedKeyword);
+    onSearch?.(medicine);
+  };
+
+  const handleSubmit = () => {
+    const exactSuggestion = suggestions.find(
+      (suggestion) => suggestion.itemName === keyword.trim(),
+    );
+
+    if (exactSuggestion) {
+      handleSearch(exactSuggestion);
+    }
   };
 
   return (
@@ -93,7 +100,7 @@ export function SearchBar({ onSearch }: SearchBarProps) {
             setKeyword(text);
             setHideSuggestions(false);
           }}
-          onSubmitEditing={() => handleSearch(keyword)}
+          onSubmitEditing={handleSubmit}
           autoCapitalize="none"
           autoCorrect={false}
           returnKeyType="search"
@@ -114,10 +121,12 @@ export function SearchBar({ onSearch }: SearchBarProps) {
         <ThemedView type="backgroundElement" style={styles.suggestionCard}>
           {suggestions.map((suggestion) => (
             <Pressable
-              key={suggestion}
+              key={suggestion.itemSeq}
               onPress={() => handleSearch(suggestion)}
               style={styles.suggestionButton}>
-              <ThemedText style={styles.suggestionLabel}>{suggestion}</ThemedText>
+              <ThemedText style={styles.suggestionLabel}>
+                {suggestion.itemName}
+              </ThemedText>
             </Pressable>
           ))}
         </ThemedView>

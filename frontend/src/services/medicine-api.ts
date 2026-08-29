@@ -1,48 +1,145 @@
-export type MedicineSearchResponse = {
+import { apiFetch } from './api-client';
+
+export type MedicineSuggestion = {
   itemSeq: number;
   itemName: string;
-  companyName: string;
-  efficacy: string;
-  useMethod: string;
-  warningBeforeUse: string;
-  caution: string;
-  interaction: string;
-  sideEffect: string;
-  storageMethod: string;
-  updateDe: string;
-  imageUrl: string;
 };
 
-const mockMedicines: MedicineSearchResponse[] = [
-  {
-    itemSeq: 200300985,
-    itemName: '뉴렙톨캡슐300밀리그램(가바펜틴)',
-    companyName: '한국화이자제약',
-    efficacy: '신경병증성 통증 완화에 사용하는 약입니다.',
-    useMethod: '의사의 처방에 따라 정해진 시간에 복용합니다.',
-    warningBeforeUse: '졸림이나 어지러움이 있을 수 있어 운전 전 주의가 필요합니다.',
-    caution: '임신, 수유, 신장질환이 있다면 복용 전 전문가와 상담하세요.',
-    interaction: '중추신경계 억제제와 병용 시 졸림이 증가할 수 있습니다.',
-    sideEffect: '졸림, 어지러움, 피로감 등이 나타날 수 있습니다.',
-    storageMethod: '실온에서 보관하고 습기를 피하세요.',
-    updateDe: '2026-08-27',
-    imageUrl: '',
-  },
-  {
-    itemSeq: 200610660,
-    itemName: '노바스크정5밀리그람(암로디핀베실산염)',
-    companyName: '한국화이자제약',
-    efficacy: '고혈압과 협심증 치료에 사용하는 약입니다.',
-    useMethod: '하루 한 번 같은 시간에 복용합니다.',
-    warningBeforeUse: '저혈압 증상이나 부종이 있으면 전문가와 상담하세요.',
-    caution: '간질환이 있거나 다른 혈압약을 복용 중이면 상담이 필요합니다.',
-    interaction: '일부 항진균제, 항생제와 상호작용할 수 있습니다.',
-    sideEffect: '두통, 안면홍조, 발목 부종 등이 나타날 수 있습니다.',
-    storageMethod: '직사광선을 피해 실온 보관하세요.',
-    updateDe: '2026-08-27',
-    imageUrl: '',
-  },
-];
+export type MedicineIngredientResponse = {
+  itemSeq: number;
+  productName: string | null;
+  ingredientSeq: number;
+  ingredientCode: string | null;
+  ingredientName: string | null;
+  quantity: string | null;
+  unit: string | null;
+};
+
+export type MedicineSearchResponse = {
+  itemSeq: number;
+  itemName: string | null;
+  companyName: string | null;
+  efficacy: string | null;
+  useMethod: string | null;
+  warningBeforeUse: string | null;
+  caution: string | null;
+  interaction: string | null;
+  sideEffect: string | null;
+  storageMethod: string | null;
+  updateDe: string | null;
+  imageUrl: string | null;
+  ingredients: MedicineIngredientResponse[];
+};
+
+type MedicineIngredientApiResponse = {
+  item_seq: number;
+  product_name: string | null;
+  ingredient_seq: number;
+  ingredient_code: string | null;
+  ingredient_name: string | null;
+  quantity: string | null;
+  unit: string | null;
+};
+
+type MedicineSearchApiResponse = {
+  item_seq: number;
+  item_name: string | null;
+  company_name: string | null;
+  efficacy: string | null;
+  use_method: string | null;
+  warning_before_use: string | null;
+  caution: string | null;
+  interaction: string | null;
+  side_effect: string | null;
+  storage_method: string | null;
+  update_de: string | null;
+  image_url: string | null;
+  ingredients: MedicineIngredientApiResponse[];
+};
+
+type MedicineSuggestApiResponse = {
+  results: {
+    medicine_id: string;
+    medicine_name: string;
+  }[];
+};
+
+type MedicineSuggestApiItem = MedicineSuggestApiResponse['results'][number];
+
+type ApiMessageResponse = {
+  message?: unknown;
+  detail?: unknown;
+};
+
+function stringifyErrorDetail(detail: unknown) {
+  if (typeof detail === 'string') {
+    return detail;
+  }
+
+  if (Array.isArray(detail)) {
+    return detail
+      .map((item) => {
+        if (typeof item === 'string') {
+          return item;
+        }
+
+        if (item && typeof item === 'object' && 'msg' in item) {
+          return String(item.msg);
+        }
+
+        return null;
+      })
+      .filter(Boolean)
+      .join('\n');
+  }
+
+  if (detail && typeof detail === 'object' && 'msg' in detail) {
+    return String(detail.msg);
+  }
+
+  return '';
+}
+
+function getErrorMessage(data: ApiMessageResponse | null, fallback: string) {
+  const detailMessage = stringifyErrorDetail(data?.detail);
+  const message = stringifyErrorDetail(data?.message);
+
+  return detailMessage || message || fallback;
+}
+
+function toMedicineIngredient(
+  data: MedicineIngredientApiResponse,
+): MedicineIngredientResponse {
+  return {
+    itemSeq: data.item_seq,
+    productName: data.product_name,
+    ingredientSeq: data.ingredient_seq,
+    ingredientCode: data.ingredient_code,
+    ingredientName: data.ingredient_name,
+    quantity: data.quantity,
+    unit: data.unit,
+  };
+}
+
+function toMedicineSearchResponse(
+  data: MedicineSearchApiResponse,
+): MedicineSearchResponse {
+  return {
+    itemSeq: data.item_seq,
+    itemName: data.item_name,
+    companyName: data.company_name,
+    efficacy: data.efficacy,
+    useMethod: data.use_method,
+    warningBeforeUse: data.warning_before_use,
+    caution: data.caution,
+    interaction: data.interaction,
+    sideEffect: data.side_effect,
+    storageMethod: data.storage_method,
+    updateDe: data.update_de,
+    imageUrl: data.image_url,
+    ingredients: data.ingredients.map(toMedicineIngredient),
+  };
+}
 
 export async function fetchMedicineSuggestions(keyword: string) {
   const trimmedKeyword = keyword.trim();
@@ -51,20 +148,53 @@ export async function fetchMedicineSuggestions(keyword: string) {
     return [];
   }
 
-  return mockMedicines
-    .filter((medicine) => medicine.itemName.includes(trimmedKeyword))
-    .map((medicine) => medicine.itemName);
-}
+  const response = await apiFetch(`/search/medicines?q=${encodeURIComponent(trimmedKeyword)}`);
+  const data = (await response.json().catch(() => null)) as
+    | ApiMessageResponse
+    | MedicineSuggestApiResponse
+    | null;
 
-export async function fetchMedicineSearchResult(keyword: string) {
-  const trimmedKeyword = keyword.trim();
-
-  if (!trimmedKeyword) {
-    throw new Error('Search keyword is required.');
+  if (!response.ok) {
+    throw new Error(
+      getErrorMessage(data as ApiMessageResponse | null, '약 이름 자동완성을 불러오지 못했어요.'),
+    );
   }
 
-  return (
-    mockMedicines.find((medicine) => medicine.itemName.includes(trimmedKeyword)) ??
-    mockMedicines[0]
-  );
+  if (
+    !data ||
+    Array.isArray(data) ||
+    !('results' in data) ||
+    !Array.isArray(data.results)
+  ) {
+    throw new Error('약 이름 자동완성 응답 형식이 올바르지 않아요.');
+  }
+
+  return data.results.map((item: MedicineSuggestApiItem) => ({
+    itemSeq: Number(item.medicine_id),
+    itemName: item.medicine_name,
+  }));
+}
+
+export async function fetchMedicineSearchResult(itemSeq: number) {
+  if (!Number.isFinite(itemSeq)) {
+    throw new Error('선택한 약 정보가 올바르지 않아요.');
+  }
+
+  const response = await apiFetch(`/search/medicines/${itemSeq}`);
+  const data = (await response.json().catch(() => null)) as
+    | ApiMessageResponse
+    | MedicineSearchApiResponse
+    | null;
+
+  if (!response.ok) {
+    throw new Error(
+      getErrorMessage(data as ApiMessageResponse | null, '약 검색 결과를 불러오지 못했어요.'),
+    );
+  }
+
+  if (!data || Array.isArray(data) || !('item_seq' in data)) {
+    throw new Error('약 검색 응답 형식이 올바르지 않아요.');
+  }
+
+  return toMedicineSearchResponse(data as MedicineSearchApiResponse);
 }

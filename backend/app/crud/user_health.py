@@ -3,7 +3,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
-from app.models.user_health_profile import HealthProfile
+from app.models.user_health import HealthProfile
 
 
 def get_health_profile(db: Session, user_id: int) -> HealthProfile | None:
