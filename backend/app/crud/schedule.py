@@ -5,10 +5,21 @@ from sqlalchemy import and_, select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session, joinedload
 
+from app.crud.medication_notification import (
+    create_medication_notifications,
+    delete_future_notifications_for_schedule,
+)
 from app.models.medication_intake_log import MedicationIntakeLog
+from app.models.medication_notification import (
+    MedicationNotificationStatus,
+    MedicationNotificationType,
+)
 from app.models.medication_schedule import MedicationSchedule
 from app.models.medication_schedule_medicine import MedicationScheduleMedicine
 from app.models.medication_schedule_time import MedicationScheduleTime
+from app.schemas.medication_notification_schema import (
+    MedicationNotificationCreateRequest,
+)
 from app.schemas.schedule_schema import (
     DailyMedicationGroupResponse,
     DailyMedicationItemResponse,
@@ -68,6 +79,13 @@ def create_schedule(
 
     try:
         db.add(schedule)
+        db.flush()
+        _create_future_notifications_for_schedule(
+            db=db,
+            user_id=user_id,
+            schedule=schedule,
+            from_time=datetime.now(),
+        )
         db.commit()
     except SQLAlchemyError:
         db.rollback()
@@ -92,6 +110,20 @@ def update_schedule(
     _sync_medicines(schedule, request.medicines)
 
     try:
+        update_started_at = datetime.now()
+        delete_future_notifications_for_schedule(
+            db=db,
+            user_id=user_id,
+            schedule_id=schedule_id,
+            from_time=update_started_at,
+        )
+        db.flush()
+        _create_future_notifications_for_schedule(
+            db=db,
+            user_id=user_id,
+            schedule=schedule,
+            from_time=update_started_at,
+        )
         db.commit()
     except SQLAlchemyError:
         db.rollback()
@@ -507,6 +539,60 @@ def _build_time_model(request: ScheduleTimeRequest) -> MedicationScheduleTime:
         timing=request.timing,
         take_time=request.take_time,
         sort_order=request.sort_order,
+    )
+
+
+def _create_future_notifications_for_schedule(
+    db: Session,
+    user_id: int,
+    schedule: MedicationSchedule,
+    from_time: datetime,
+) -> None:
+    notification_requests: list[MedicationNotificationCreateRequest] = []
+
+    for medicine in _sort_medicines(schedule.medicines):
+        if not medicine.is_active:
+            continue
+
+        duration_days = medicine.duration_days or 1
+        active_days = max(duration_days, 1)
+
+        for day_offset in range(active_days):
+            target_date = schedule.start_date + timedelta(days=day_offset)
+
+            for schedule_time in _sort_times(medicine.times):
+                if (
+                    schedule.id is None
+                    or medicine.id is None
+                    or schedule_time.id is None
+                ):
+                    continue
+
+                scheduled_at = datetime.combine(target_date, schedule_time.take_time)
+
+                if scheduled_at <= from_time:
+                    continue
+
+                notification_requests.append(
+                    MedicationNotificationCreateRequest(
+                        medicationScheduleId=schedule.id,
+                        medicationScheduleMedicineId=medicine.id,
+                        medicationScheduleTimeId=schedule_time.id,
+                        type=MedicationNotificationType.MEDICATION_REMINDER,
+                        title="복약 시간이에요",
+                        body=f"{medicine.custom_medicine_name} 복용할 시간입니다.",
+                        status=MedicationNotificationStatus.PENDING,
+                        scheduledAt=scheduled_at,
+                    )
+                )
+
+    if not notification_requests:
+        return
+
+    create_medication_notifications(
+        db=db,
+        user_id=user_id,
+        requests=notification_requests,
     )
 
 

@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.auth import router as auth_router
 from app.api.chat import router as chat_router
+from app.api.medication_notification import router as medication_notification_router
 from app.api.user_health import router as user_health_profile_router
 from app.api.user_disease import router as user_disease_router
 from app.api.ocr import router as ocr_router
@@ -21,6 +22,7 @@ from app.models import disease_master as disease_master_models
 from app.models import medicine_info as medicine_info_models
 from app.models import medicine_ingredient as medicine_ingredient_models
 from app.models import medication_intake_log as medication_intake_log_models
+from app.models import medication_notification as medication_notification_models
 from app.models import medication_schedule as medication_schedule_models
 from app.models import medication_schedule_medicine as medication_schedule_medicine_models
 from app.models import medication_schedule_time as medication_schedule_time_models
@@ -65,9 +67,11 @@ app.include_router(user_caution_profile_router)
 app.include_router(schedule_router)
 app.include_router(schedule_time_router)
 app.include_router(intake_log_router)
+app.include_router(medication_notification_router)
 app.include_router(schedule_router, prefix="/api")
 app.include_router(schedule_time_router, prefix="/api")
 app.include_router(intake_log_router, prefix="/api")
+app.include_router(medication_notification_router, prefix="/api")
 
 @app.get("/health")
 def health_check():

@@ -30,6 +30,7 @@ import {
   updateSchedule,
   type ScheduleSavePayload,
 } from "@/services/schedule-api";
+import { rescheduleMedicationNotifications } from "@/services/medication-notification-service";
 
 type ActiveDatePicker = {
   field: "dispensedDate";
@@ -301,7 +302,7 @@ export function ManualPrescriptionForm({
     updateTime(
       activeTimePicker.medicineId,
       activeTimePicker.timeId,
-      formatTime(selectedDate),
+      formatPickerTime(event, selectedDate),
     );
   };
 
@@ -321,7 +322,7 @@ export function ManualPrescriptionForm({
       return;
     }
 
-    updateScheduleField("dispensedDate", formatDate(selectedDate));
+    updateScheduleField("dispensedDate", formatPickerDate(event, selectedDate));
   };
 
   const activeTimeValue = activeTimePicker
@@ -346,11 +347,12 @@ export function ManualPrescriptionForm({
     setFeedbackMessage("");
 
     try {
-      if (isEditMode && initialPrescription) {
-        await updateSchedule(Number(initialPrescription.id), payload);
-      } else {
-        await createSchedule(payload);
-      }
+      const savedSchedule =
+        isEditMode && initialPrescription
+          ? await updateSchedule(Number(initialPrescription.id), payload)
+          : await createSchedule(payload);
+
+      await rescheduleMedicationNotifications(savedSchedule);
 
       router.replace("/(tabs)/prescription");
     } catch (error) {
@@ -980,9 +982,10 @@ function parseTime(value: string) {
   return date;
 }
 
-function formatTime(date: Date) {
-  const hours = `${date.getHours()}`.padStart(2, "0");
-  const minutes = `${date.getMinutes()}`.padStart(2, "0");
+function formatPickerTime(event: DateTimePickerEvent, date: Date) {
+  const correctedDate = toPickerWallClockDate(event, date);
+  const hours = `${correctedDate.getUTCHours()}`.padStart(2, "0");
+  const minutes = `${correctedDate.getUTCMinutes()}`.padStart(2, "0");
   return `${hours}:${minutes}`;
 }
 
@@ -1003,11 +1006,28 @@ function parseDate(value: string) {
   return new Date(year, month - 1, day);
 }
 
-function formatDate(date: Date) {
-  const year = date.getFullYear();
-  const month = `${date.getMonth() + 1}`.padStart(2, "0");
-  const day = `${date.getDate()}`.padStart(2, "0");
+function formatPickerDate(event: DateTimePickerEvent, date: Date) {
+  const correctedDate = toPickerWallClockDate(event, date);
+  const year = correctedDate.getUTCFullYear();
+  const month = `${correctedDate.getUTCMonth() + 1}`.padStart(2, "0");
+  const day = `${correctedDate.getUTCDate()}`.padStart(2, "0");
   return `${year}-${month}-${day}`;
+}
+
+function toPickerWallClockDate(event: DateTimePickerEvent, fallbackDate: Date) {
+  const { timestamp, utcOffset } = event.nativeEvent;
+
+  if (
+    typeof timestamp === "number" &&
+    typeof utcOffset === "number" &&
+    Number.isFinite(timestamp) &&
+    Number.isFinite(utcOffset)
+  ) {
+    return new Date(timestamp + utcOffset * 60 * 1000);
+  }
+
+  const fallbackOffset = fallbackDate.getTimezoneOffset() * -1;
+  return new Date(fallbackDate.getTime() + fallbackOffset * 60 * 1000);
 }
 
 const styles = StyleSheet.create({

@@ -21,6 +21,7 @@ import { ThemedText } from "@/components/ui/themed-text";
 import { ThemedView } from "@/components/ui/themed-view";
 import { Spacing, TopOverlayClearance } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
+import { cancelMedicationNotifications } from "@/services/medication-notification-service";
 import { deleteSchedule, fetchScheduleById } from "@/services/schedule-api";
 
 export default function PrescriptionDetailScreen() {
@@ -87,6 +88,7 @@ export default function PrescriptionDetailScreen() {
         onPress: async () => {
           try {
             await deleteSchedule(Number(prescription.id));
+            await cancelMedicationNotifications(Number(prescription.id));
             router.replace("/(tabs)/prescription");
           } catch (error) {
             Alert.alert(
@@ -216,6 +218,26 @@ export default function PrescriptionDetailScreen() {
             ))}
           </View>
         </View>
+
+        <Pressable
+          onPress={() =>
+            router.push({
+              pathname: "/prescription-analysis/[id]",
+              params: { id: prescription.id },
+            })
+          }
+          style={styles.aiAnalysisButton}
+        >
+          <View style={styles.aiButtonIcon}>
+            <ThemedText style={styles.aiButtonIconText}>AI</ThemedText>
+          </View>
+          <View style={styles.aiButtonCopy}>
+            <ThemedText style={styles.aiButtonTitle}>AI 복약 점검</ThemedText>
+            <ThemedText style={styles.aiButtonSubtext}>
+              처방전 주의사항과 개인 건강정보를 함께 확인해요.
+            </ThemedText>
+          </View>
+        </Pressable>
 
         <View style={styles.actionRow}>
           <Pressable
@@ -383,6 +405,45 @@ const styles = StyleSheet.create({
   medicineSummary: {
     fontSize: 15,
     lineHeight: 20,
+  },
+  aiAnalysisButton: {
+    minHeight: 82,
+    borderRadius: 20,
+    padding: Spacing.three,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.three,
+    backgroundColor: "#208AEF",
+  },
+  aiButtonIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.18)",
+  },
+  aiButtonIconText: {
+    color: "#FFFFFF",
+    fontSize: 15,
+    lineHeight: 18,
+    fontWeight: "800",
+  },
+  aiButtonCopy: {
+    flex: 1,
+    gap: 3,
+  },
+  aiButtonTitle: {
+    color: "#FFFFFF",
+    fontSize: 19,
+    lineHeight: 24,
+    fontWeight: "800",
+  },
+  aiButtonSubtext: {
+    color: "rgba(255, 255, 255, 0.78)",
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: "600",
   },
   actionRow: {
     flexDirection: "row",

@@ -1,7 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect } from 'expo-router';
+import { useCallback, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { useTheme } from '@/hooks/use-theme';
+import { useAuth } from '@/providers/auth-provider';
+import { fetchMedicationNotifications } from '@/services/notification-api';
 
 import { ThemedText } from '../ui/themed-text';
 import { ThemedView } from '../ui/themed-view';
@@ -12,11 +16,46 @@ type TopAlertBannerProps = {
 };
 
 export function TopAlertBanner({
-  unreadCount = 3,
   onPress,
 }: TopAlertBannerProps) {
   const theme = useTheme();
+  const { isAuthenticated, isHydrating } = useAuth();
+  const [unreadCount, setUnreadCount] = useState(0);
   const badgeLabel = unreadCount > 99 ? '99+' : String(unreadCount);
+
+  useFocusEffect(
+    useCallback(() => {
+      let mounted = true;
+
+      async function loadUnreadCount() {
+        if (isHydrating || !isAuthenticated) {
+          setUnreadCount(0);
+          return;
+        }
+
+        try {
+          const notifications = await fetchMedicationNotifications();
+          const nextUnreadCount = notifications.filter(
+            (notification) => !notification.readAt,
+          ).length;
+
+          if (mounted) {
+            setUnreadCount(nextUnreadCount);
+          }
+        } catch {
+          if (mounted) {
+            setUnreadCount(0);
+          }
+        }
+      }
+
+      void loadUnreadCount();
+
+      return () => {
+        mounted = false;
+      };
+    }, [isAuthenticated, isHydrating]),
+  );
 
   return (
     <Pressable hitSlop={12} style={styles.wrapper} onPress={onPress}>
