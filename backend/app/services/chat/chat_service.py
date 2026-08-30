@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from app.crud.chat import (
     create_chat_message,
     create_chat_room,
+    delete_chat_message,
     delete_chat_room,
     get_chat_messages,
     get_chat_room,
@@ -170,6 +171,13 @@ def delete_room(db: Session, user_id: int, room_id: str) -> None:
 
     if not deleted:
         raise HTTPException(status_code=404, detail="Chat room not found")
+
+
+def delete_message(db: Session, user_id: int, message_id: int) -> None:
+    deleted = delete_chat_message(db=db, message_id=message_id, user_id=user_id)
+
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Chat message not found")
 
 
 def read_room_messages(

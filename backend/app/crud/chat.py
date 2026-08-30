@@ -120,6 +120,30 @@ def get_chat_messages(
 
     return list(db.scalars(stmt).all())
 
+
+def delete_chat_message(
+    db: Session,
+    message_id: int,
+    user_id: int,
+) -> bool:
+    stmt = (
+        select(ChatMessage)
+        .join(ChatRoom)
+        .where(
+            ChatRoom.user_id == user_id,
+            ChatMessage.id == message_id,
+        )
+    )
+    message = db.scalar(stmt)
+
+    if message is None:
+        return False
+
+    db.delete(message)
+    db.commit()
+
+    return True
+
 # 쿼리재작성용 최근 메시지 조회
 def get_recent_chat_messages(
     db: Session,

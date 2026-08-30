@@ -920,6 +920,7 @@ function toSchedulePayload(
     startDate: schedule.dispensedDate,
     dispensedDate: schedule.dispensedDate,
     medicines: schedule.medicines.map((medicine) => ({
+      id: parseOptionalId(medicine.id),
       itemSeq: medicine.itemSeq,
       customMedicineName: medicine.customMedicineName.trim(),
       dosageAmount: medicine.dosageAmount.trim(),
@@ -927,6 +928,7 @@ function toSchedulePayload(
       timesPerDay: parseOptionalNumber(medicine.timesPerDay),
       durationDays: parseOptionalNumber(medicine.durationDays),
       times: medicine.times.map((time, index) => ({
+        id: parseOptionalId(time.id),
         takeTime: `${time.takeTime}:00`,
         sortOrder: index + 1,
       })),
@@ -943,6 +945,15 @@ function parseOptionalNumber(value: string) {
 
   const parsed = Number(trimmed);
   return Number.isFinite(parsed) ? parsed : null;
+}
+
+function parseOptionalId(value: string) {
+  if (!/^\d+$/.test(value)) {
+    return null;
+  }
+
+  const parsed = Number(value);
+  return Number.isSafeInteger(parsed) ? parsed : null;
 }
 
 function parseNumericField(value: string, fallback: number) {

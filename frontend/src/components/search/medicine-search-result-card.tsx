@@ -56,8 +56,6 @@ export function MedicineSearchResultCard({
         ) : null}
       </View>
 
-      <FieldRow label="품목기준코드" value={result.itemSeq} />
-      <FieldRow label="업데이트" value={result.updateDe} />
       <FieldRow label="효과" value={result.efficacy} />
       <FieldRow label="사용법" value={result.useMethod} />
       <FieldRow label="주의사항" value={cautionText} />

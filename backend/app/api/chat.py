@@ -14,9 +14,9 @@ from app.schemas.chat_schema import (
 )
 from app.services.chat import chat_service
 
-router = APIRouter(prefix="/chat", tags=["Chat"])
+router = APIRouter(prefix="/api/chatbot", tags=["Chatbot"])
 
-@router.post("", response_model=ChatResponse)
+@router.post("/message", response_model=ChatResponse)
 def chat(
     request: ChatRequest,
     db: Session = Depends(get_db),
@@ -104,3 +104,18 @@ def read_room_messages(
         user_id=current_user.id,
         room_id=room_id,
     )
+
+
+@router.delete("/messages/{message_id}", status_code=204)
+def delete_message(
+    message_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    chat_service.delete_message(
+        db=db,
+        user_id=current_user.id,
+        message_id=message_id,
+    )
+
+    return Response(status_code=204)

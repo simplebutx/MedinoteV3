@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -84,6 +85,11 @@ export function DiseaseListSection() {
     (item) => item.diseaseName.trim() === trimmedKeyword
   );
 
+  const clearKeyword = () => {
+    setKeyword('');
+    setSuggestions([]);
+  };
+
   const handleCreate = async (disease: DiseaseSuggestResponse) => {
     try {
       const createdDisease = await createMyDisease(disease);
@@ -134,6 +140,7 @@ export function DiseaseListSection() {
         placeholder="질환명을 검색해보세요"
         value={keyword}
         onChangeText={setKeyword}
+        onClear={clearKeyword}
       />
 
       {isLoadingSuggestions ? (
@@ -156,9 +163,6 @@ export function DiseaseListSection() {
               style={styles.row}>
               <View style={styles.rowHeader}>
                 <ThemedText style={styles.itemTitle}>{item.diseaseName}</ThemedText>
-                <ThemedText themeColor="textSecondary" style={styles.addLabel}>
-                  추가
-                </ThemedText>
               </View>
 
               {index < suggestions.length - 1 && (
@@ -185,12 +189,9 @@ export function DiseaseListSection() {
               <View style={styles.customCopy}>
                 <ThemedText style={styles.itemTitle}>{trimmedKeyword}</ThemedText>
                 <ThemedText themeColor="textSecondary" style={styles.customNote}>
-                  자동완성에 없으면 직접 추가할 수 있어요.
+                  자동완성에 없으면 이 항목을 직접 등록할 수 있어요.
                 </ThemedText>
               </View>
-              <ThemedText themeColor="textSecondary" style={styles.addLabel}>
-                직접 추가
-              </ThemedText>
             </View>
           </Pressable>
         </ThemedView>
@@ -225,10 +226,12 @@ export function DiseaseListSection() {
                 <Pressable
                   onPress={() => {
                     void handleDelete(item.id);
-                  }}>
-                  <ThemedText themeColor="textSecondary" style={styles.deleteLabel}>
-                    삭제
-                  </ThemedText>
+                  }}
+                  style={[
+                    styles.iconButton,
+                    { backgroundColor: theme.backgroundSelected },
+                  ]}>
+                  <Ionicons name="close" size={18} color={theme.textSecondary} />
                 </Pressable>
               </View>
 
@@ -315,14 +318,12 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 18,
   },
-  addLabel: {
-    fontSize: 14,
-    lineHeight: 18,
-    fontWeight: '700',
-  },
-  deleteLabel: {
-    fontSize: 14,
-    lineHeight: 18,
+  iconButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   divider: {
     position: 'absolute',

@@ -58,7 +58,7 @@ export async function fetchAiHealth() {
 }
 
 export async function fetchChatRooms() {
-  const response = await apiFetch('/chat/rooms');
+  const response = await apiFetch('/api/chatbot/rooms');
 
   if (!response.ok) {
     throw new Error('채팅 목록을 불러오지 못했어요.');
@@ -68,7 +68,7 @@ export async function fetchChatRooms() {
 }
 
 export async function createChatRoom() {
-  const response = await apiFetch('/chat/rooms', {
+  const response = await apiFetch('/api/chatbot/rooms', {
     method: 'POST',
     body: JSON.stringify({ title: null }),
   });
@@ -81,7 +81,7 @@ export async function createChatRoom() {
 }
 
 export async function fetchChatMessages(roomId: string) {
-  const response = await apiFetch(`/chat/rooms/${roomId}/messages`);
+  const response = await apiFetch(`/api/chatbot/rooms/${roomId}/messages`);
 
   if (!response.ok) {
     throw new Error('채팅 메시지를 불러오지 못했어요.');
@@ -91,12 +91,22 @@ export async function fetchChatMessages(roomId: string) {
 }
 
 export async function deleteChatRoom(roomId: string) {
-  const response = await apiFetch(`/chat/rooms/${roomId}`, {
+  const response = await apiFetch(`/api/chatbot/rooms/${roomId}`, {
     method: 'DELETE',
   });
 
   if (!response.ok) {
     throw new Error('채팅방을 삭제하지 못했어요.');
+  }
+}
+
+export async function deleteChatMessage(messageId: number) {
+  const response = await apiFetch(`/api/chatbot/messages/${messageId}`, {
+    method: 'DELETE',
+  });
+
+  if (!response.ok) {
+    throw new Error('채팅 메시지를 삭제하지 못했어요.');
   }
 }
 
@@ -111,7 +121,7 @@ export async function requestAiChat(
     throw new Error('질문을 입력해 주세요.');
   }
 
-  const response = await apiFetch('/chat', {
+  const response = await apiFetch('/api/chatbot/message', {
     method: 'POST',
     body: JSON.stringify({
       room_id: roomId,

@@ -1,4 +1,5 @@
-import { StyleSheet, TextInput, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
@@ -10,6 +11,7 @@ type MyPageSearchFieldProps = {
   placeholder: string;
   value?: string;
   onChangeText?: (text: string) => void;
+  onClear?: () => void;
   onSubmitEditing?: () => void;
 };
 
@@ -17,9 +19,11 @@ export function MyPageSearchField({
   placeholder,
   value,
   onChangeText,
+  onClear,
   onSubmitEditing,
 }: MyPageSearchFieldProps) {
   const theme = useTheme();
+  const canClear = Boolean(value && onClear);
 
   return (
     <ThemedView type="backgroundElement" style={styles.container}>
@@ -38,6 +42,14 @@ export function MyPageSearchField({
         onChangeText={onChangeText}
         onSubmitEditing={onSubmitEditing}
       />
+
+      {canClear ? (
+        <Pressable
+          onPress={onClear}
+          style={[styles.clearButton, { backgroundColor: theme.backgroundSelected }]}>
+          <Ionicons name="close" size={18} color={theme.textSecondary} />
+        </Pressable>
+      ) : null}
     </ThemedView>
   );
 }
@@ -62,5 +74,12 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 16,
     paddingVertical: 0,
+  },
+  clearButton: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

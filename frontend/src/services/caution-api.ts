@@ -2,6 +2,7 @@ import { apiFetch } from './api-client';
 
 export type CautionTargetType = 'MEDICINE' | 'INGREDIENT';
 export type CautionReason = 'ALLERGY' | 'SIDE_EFFECT' | 'OTHER';
+export type CautionReasonValue = CautionReason | string;
 
 export type CautionSuggestion = {
   targetType: CautionTargetType;
@@ -18,7 +19,7 @@ export type CautionItem = {
   itemName: string;
   ingredientCode: string;
   ingredientName: string;
-  reason: CautionReason | null;
+  reason: CautionReasonValue | null;
 };
 
 export type CreateCautionPayload = {
@@ -27,7 +28,7 @@ export type CreateCautionPayload = {
   itemName: string;
   ingredientCode: string;
   ingredientName: string;
-  reason: CautionReason;
+  reason: CautionReasonValue;
 };
 
 type CautionSuggestionApiResponse = {
@@ -40,7 +41,7 @@ type CautionSuggestionApiResponse = {
 type CautionItemApiResponse = CautionSuggestionApiResponse & {
   id: number;
   target_type: CautionTargetType;
-  reason?: CautionReason | null;
+  reason?: CautionReasonValue | null;
 };
 
 type ApiMessageResponse = {

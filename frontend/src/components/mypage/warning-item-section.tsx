@@ -1,8 +1,10 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
   StyleSheet,
+  TextInput,
   View,
 } from 'react-native';
 
@@ -14,6 +16,8 @@ import {
   fetchCautionSuggestions,
   fetchMyCautions,
   type CautionItem,
+  type CautionReason,
+  type CautionReasonValue,
   type CautionSuggestion,
   type CautionTargetType,
 } from '@/services/caution-api';
@@ -29,14 +33,30 @@ const warningTabs: { key: WarningTabKey; label: string; targetType: CautionTarge
   { key: 'ingredient', label: '성분', targetType: 'INGREDIENT' },
 ];
 
+const cautionReasonOptions: { value: CautionReason; label: string }[] = [
+  { value: 'ALLERGY', label: '알레르기' },
+  { value: 'SIDE_EFFECT', label: '부작용' },
+  { value: 'OTHER', label: '기타' },
+];
+
+const cautionReasonLabels: Record<CautionReason, string> = {
+  ALLERGY: '알레르기',
+  SIDE_EFFECT: '부작용',
+  OTHER: '기타',
+};
+
 export function WarningItemSection() {
   const theme = useTheme();
   const [activeTab, setActiveTab] = useState<WarningTabKey>('ingredient');
   const [keyword, setKeyword] = useState('');
   const [suggestions, setSuggestions] = useState<CautionSuggestion[]>([]);
   const [cautions, setCautions] = useState<CautionItem[]>([]);
+  const [selectedCaution, setSelectedCaution] = useState<CautionSuggestion | null>(null);
+  const [selectedReason, setSelectedReason] = useState<CautionReason>('OTHER');
+  const [customReason, setCustomReason] = useState('');
   const [isLoadingList, setIsLoadingList] = useState(true);
   const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
   const [feedbackMessage, setFeedbackMessage] = useState('');
 
   const activeTargetType = useMemo(
@@ -102,18 +122,76 @@ export function WarningItemSection() {
     return () => clearTimeout(timeoutId);
   }, [activeTargetType, keyword]);
 
-  const handleCreate = async (caution: CautionSuggestion) => {
+  const handleKeywordChange = (value: string) => {
+    setKeyword(value);
+    setSelectedCaution(null);
+  };
+
+  const clearKeyword = () => {
+    setKeyword('');
+    setSuggestions([]);
+    setSelectedCaution(null);
+  };
+
+  const handleTabChange = (tab: WarningTabKey) => {
+    setActiveTab(tab);
+    setKeyword('');
+    setSuggestions([]);
+    setSelectedCaution(null);
+  };
+
+  const handleSelectSuggestion = (caution: CautionSuggestion) => {
+    setSelectedCaution(caution);
+    setSelectedReason('OTHER');
+    setCustomReason('');
+    setFeedbackMessage('');
+  };
+
+  const clearSelectedCaution = () => {
+    if (isCreating) {
+      return;
+    }
+
+    setSelectedCaution(null);
+    setCustomReason('');
+  };
+
+  const handleReasonSelect = (reason: CautionReason) => {
+    setSelectedReason(reason);
+
+    if (reason !== 'OTHER') {
+      setCustomReason('');
+    }
+  };
+
+  const handleCreate = async () => {
+    if (!selectedCaution) {
+      return;
+    }
+
+    const reason: CautionReasonValue =
+      selectedReason === 'OTHER' ? customReason.trim() : selectedReason;
+
+    if (!reason) {
+      setFeedbackMessage('기타 사유를 입력해주세요.');
+      return;
+    }
+
+    setIsCreating(true);
+
     try {
       await createMyCaution({
-        targetType: caution.targetType,
-        itemSeq: caution.itemSeq,
-        itemName: caution.itemName,
-        ingredientCode: caution.ingredientCode,
-        ingredientName: caution.ingredientName,
-        reason: 'OTHER',
+        targetType: selectedCaution.targetType,
+        itemSeq: selectedCaution.itemSeq,
+        itemName: selectedCaution.itemName,
+        ingredientCode: selectedCaution.ingredientCode,
+        ingredientName: selectedCaution.ingredientName,
+        reason,
       });
       setKeyword('');
       setSuggestions([]);
+      setSelectedCaution(null);
+      setCustomReason('');
       setFeedbackMessage('');
 
       const refreshedCautions = await fetchMyCautions();
@@ -124,6 +202,8 @@ export function WarningItemSection() {
           ? error.message
           : '주의 항목을 등록하지 못했어요.'
       );
+    } finally {
+      setIsCreating(false);
     }
   };
 
@@ -150,7 +230,7 @@ export function WarningItemSection() {
           return (
             <Pressable
               key={tab.key}
-              onPress={() => setActiveTab(tab.key)}
+              onPress={() => handleTabChange(tab.key)}
               style={[
                 styles.tabButton,
                 {
@@ -178,7 +258,8 @@ export function WarningItemSection() {
             : '주의할 성분명을 검색해보세요'
         }
         value={keyword}
-        onChangeText={setKeyword}
+        onChangeText={handleKeywordChange}
+        onClear={clearKeyword}
       />
 
       {isLoadingSuggestions ? (
@@ -190,7 +271,111 @@ export function WarningItemSection() {
         </ThemedView>
       ) : null}
 
-      {suggestions.length > 0 ? (
+      {selectedCaution ? (
+        <ThemedView type="backgroundElement" style={styles.selectionCard}>
+          <View style={styles.selectionHeader}>
+            <View style={styles.rowCopy}>
+              <ThemedText themeColor="textSecondary" style={styles.selectionLabel}>
+                후보 선택
+              </ThemedText>
+              <ThemedText style={styles.selectedTitle}>
+                {selectedCaution.targetType === 'MEDICINE'
+                  ? selectedCaution.itemName
+                  : selectedCaution.ingredientName}
+              </ThemedText>
+              {selectedCaution.targetType === 'INGREDIENT' && selectedCaution.itemName ? (
+                <ThemedText themeColor="textSecondary" style={styles.itemMeta}>
+                  포함 약: {selectedCaution.itemName}
+                </ThemedText>
+              ) : null}
+            </View>
+            <Pressable
+              onPress={clearSelectedCaution}
+              disabled={isCreating}
+              style={[
+                styles.iconButton,
+                { backgroundColor: theme.backgroundSelected },
+              ]}>
+              <Ionicons name="close" size={18} color={theme.textSecondary} />
+            </Pressable>
+          </View>
+
+          <View
+            style={[
+              styles.sectionDivider,
+              { backgroundColor: theme.backgroundSelected },
+            ]}
+          />
+
+          <View style={styles.reasonSection}>
+            <ThemedText themeColor="textSecondary" style={styles.reasonLabel}>
+              등록 사유
+            </ThemedText>
+            <View style={styles.reasonRow}>
+              {cautionReasonOptions.map((option) => {
+                const selected = option.value === selectedReason;
+
+                return (
+                  <Pressable
+                    key={option.value}
+                    onPress={() => handleReasonSelect(option.value)}
+                    style={[
+                      styles.reasonButton,
+                      {
+                        backgroundColor: selected
+                          ? theme.text
+                          : theme.backgroundSelected,
+                      },
+                    ]}>
+                    <ThemedText
+                      style={[
+                        styles.reasonButtonLabel,
+                        { color: selected ? theme.background : theme.textSecondary },
+                      ]}>
+                      {option.label}
+                    </ThemedText>
+                  </Pressable>
+                );
+              })}
+            </View>
+            {selectedReason === 'OTHER' ? (
+              <ThemedView type="background" style={styles.customReasonWrap}>
+                <TextInput
+                  placeholder="주의해야 하는 이유를 입력하세요"
+                  placeholderTextColor={theme.textSecondary}
+                  style={[styles.customReasonInput, { color: theme.text }]}
+                  value={customReason}
+                  onChangeText={setCustomReason}
+                  editable={!isCreating}
+                  multiline
+                  textAlignVertical="top"
+                />
+              </ThemedView>
+            ) : null}
+          </View>
+
+          <Pressable
+            onPress={() => {
+              void handleCreate();
+            }}
+            disabled={isCreating}
+            style={[
+              styles.saveButton,
+              {
+                backgroundColor: theme.text,
+                opacity: isCreating ? 0.7 : 1,
+              },
+            ]}>
+            {isCreating ? (
+              <ActivityIndicator color={theme.background} />
+            ) : (
+              <ThemedText style={[styles.saveButtonLabel, { color: theme.background }]}>
+                저장
+              </ThemedText>
+            )}
+          </Pressable>
+        </ThemedView>
+      ) : suggestions.length > 0 ? (
         <ThemedView type="backgroundElement" style={styles.listCard}>
           {suggestions.map((item, index) => {
             const primaryText =
@@ -203,9 +388,7 @@ export function WarningItemSection() {
             return (
               <Pressable
                 key={`${item.targetType}-${item.itemSeq ?? 'suggestion'}-${item.ingredientCode}-${primaryText}`}
-                onPress={() => {
-                  void handleCreate(item);
-                }}
+                onPress={() => handleSelectSuggestion(item)}
                 style={styles.row}>
                 <View style={styles.rowHeader}>
                   <View style={styles.rowCopy}>
@@ -216,9 +399,6 @@ export function WarningItemSection() {
                       </ThemedText>
                     ) : null}
                   </View>
-                  <ThemedText themeColor="textSecondary" style={styles.addLabel}>
-                    추가
-                  </ThemedText>
                 </View>
 
                 {index < suggestions.length - 1 && (
@@ -266,6 +446,7 @@ export function WarningItemSection() {
               item.targetType === 'INGREDIENT' && item.itemName
                 ? `포함 약: ${item.itemName}`
                 : '';
+            const reasonText = formatCautionReason(item.reason);
 
             return (
               <View key={item.id} style={styles.row}>
@@ -277,14 +458,21 @@ export function WarningItemSection() {
                         {secondaryText}
                       </ThemedText>
                     ) : null}
+                    {reasonText ? (
+                      <ThemedText themeColor="textSecondary" style={styles.itemMeta}>
+                        {reasonText}
+                      </ThemedText>
+                    ) : null}
                   </View>
                   <Pressable
                     onPress={() => {
                       void handleDelete(item.id);
-                    }}>
-                    <ThemedText themeColor="textSecondary" style={styles.deleteLabel}>
-                      삭제
-                    </ThemedText>
+                    }}
+                    style={[
+                      styles.iconButton,
+                      { backgroundColor: theme.backgroundSelected },
+                    ]}>
+                    <Ionicons name="close" size={18} color={theme.textSecondary} />
                   </Pressable>
                 </View>
 
@@ -309,6 +497,18 @@ export function WarningItemSection() {
       )}
     </View>
   );
+}
+
+function formatCautionReason(reason: CautionReasonValue | null) {
+  if (!reason) {
+    return '';
+  }
+
+  if (reason === 'ALLERGY' || reason === 'SIDE_EFFECT' || reason === 'OTHER') {
+    return cautionReasonLabels[reason];
+  }
+
+  return reason;
 }
 
 const styles = StyleSheet.create({
@@ -350,6 +550,22 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     overflow: 'hidden',
   },
+  selectionCard: {
+    borderRadius: 18,
+    padding: Spacing.three,
+    gap: Spacing.three,
+  },
+  selectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: Spacing.two,
+  },
+  selectionLabel: {
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '700',
+  },
   emptyCard: {
     borderRadius: 18,
     padding: Spacing.three,
@@ -388,14 +604,12 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 18,
   },
-  addLabel: {
-    fontSize: 14,
-    lineHeight: 18,
-    fontWeight: '700',
-  },
-  deleteLabel: {
-    fontSize: 14,
-    lineHeight: 18,
+  iconButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   divider: {
     position: 'absolute',
@@ -403,5 +617,63 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     height: 1,
+  },
+  selectedTitle: {
+    fontSize: 17,
+    lineHeight: 22,
+    fontWeight: '700',
+  },
+  sectionDivider: {
+    height: 1,
+    opacity: 0.7,
+  },
+  reasonSection: {
+    gap: Spacing.two,
+  },
+  reasonLabel: {
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '700',
+  },
+  reasonRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.two,
+  },
+  reasonButton: {
+    minHeight: 40,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  reasonButtonLabel: {
+    fontSize: 14,
+    lineHeight: 18,
+    fontWeight: '700',
+  },
+  customReasonWrap: {
+    minHeight: 88,
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  customReasonInput: {
+    minHeight: 68,
+    fontSize: 15,
+    lineHeight: 21,
+    padding: 0,
+  },
+  saveButton: {
+    height: 48,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  saveButtonLabel: {
+    fontSize: 15,
+    lineHeight: 18,
+    fontWeight: '700',
   },
 });

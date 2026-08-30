@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -19,9 +20,10 @@ import { ThemedView } from '../ui/themed-view';
 
 type SearchBarProps = {
   onSearch?: (medicine: MedicineSuggestion) => void;
+  onClear?: () => void;
 };
 
-export function SearchBar({ onSearch }: SearchBarProps) {
+export function SearchBar({ onSearch, onClear }: SearchBarProps) {
   const theme = useTheme();
   const [keyword, setKeyword] = useState('');
   const [suggestions, setSuggestions] = useState<MedicineSuggestion[]>([]);
@@ -71,6 +73,15 @@ export function SearchBar({ onSearch }: SearchBarProps) {
     onSearch?.(medicine);
   };
 
+  const handleClear = () => {
+    setKeyword('');
+    setSuggestions([]);
+    setErrorMessage('');
+    setHideSuggestions(false);
+    setIsLoading(false);
+    onClear?.();
+  };
+
   const handleSubmit = () => {
     const exactSuggestion = suggestions.find(
       (suggestion) => suggestion.itemName === keyword.trim(),
@@ -108,6 +119,14 @@ export function SearchBar({ onSearch }: SearchBarProps) {
 
         {isLoading ? (
           <ActivityIndicator size="small" color={theme.textSecondary} />
+        ) : null}
+
+        {keyword ? (
+          <Pressable
+            onPress={handleClear}
+            style={[styles.clearButton, { backgroundColor: theme.backgroundSelected }]}>
+            <Ionicons name="close" size={18} color={theme.textSecondary} />
+          </Pressable>
         ) : null}
       </ThemedView>
 
@@ -158,6 +177,13 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 16,
     paddingVertical: 0,
+  },
+  clearButton: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   feedbackText: {
     fontSize: 13,

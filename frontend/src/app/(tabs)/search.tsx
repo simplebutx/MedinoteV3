@@ -48,6 +48,13 @@ export default function SearchScreen() {
     }
   };
 
+  const handleClearSearch = () => {
+    setSelectedKeyword("");
+    setResult(null);
+    setResultError("");
+    setIsLoadingResult(false);
+  };
+
   return (
     <AppScreen showTopAlert={false}>
       <ThemedView style={styles.screen}>
@@ -75,7 +82,7 @@ export default function SearchScreen() {
             />
           </View>
 
-          <SearchBar onSearch={handleSearch} />
+          <SearchBar onSearch={handleSearch} onClear={handleClearSearch} />
 
           {isLoadingResult ? (
             <ThemedView type="backgroundElement" style={styles.feedbackCard}>

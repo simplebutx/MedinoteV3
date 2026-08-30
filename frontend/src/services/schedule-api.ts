@@ -1,3 +1,5 @@
+import { apiFetch } from './api-client';
+
 export type ScheduleTime = {
   id: number;
   takeTime: string;
@@ -32,6 +34,7 @@ export type ScheduleSavePayload = {
   startDate: string;
   dispensedDate: string;
   medicines: {
+    id?: number | null;
     itemSeq: number | null;
     customMedicineName: string;
     dosageAmount: string;
@@ -39,6 +42,7 @@ export type ScheduleSavePayload = {
     timesPerDay: number | null;
     durationDays: number | null;
     times: {
+      id?: number | null;
       takeTime: string;
       sortOrder: number;
       timing?: string | null;
@@ -93,189 +97,379 @@ export type DailyMedicationSchedule = {
   groups: DailyMedicationGroup[];
 };
 
-let mockSchedules: ScheduleRecord[] = [
-  {
-    id: 1,
-    hospitalName: '메디노트 내과',
-    pharmacyName: '우리약국',
-    startDate: '2026-08-27',
-    dispensedDate: '2026-08-27',
-    isActive: true,
-    medicines: [
-      {
-        id: 11,
-        itemSeq: 200300985,
-        customMedicineName: '뉴렙톨캡슐300밀리그램',
-        dosageAmount: '1',
-        dosageUnit: '정',
-        timesPerDay: '2',
-        durationDays: '5',
-        times: [
-          { id: 101, timing: '아침', takeTime: '08:00', sortOrder: 1 },
-          { id: 102, timing: '저녁', takeTime: '21:00', sortOrder: 2 },
-        ],
-      },
-      {
-        id: 12,
-        itemSeq: 200610660,
-        customMedicineName: '노바스크정5밀리그람',
-        dosageAmount: '1',
-        dosageUnit: '정',
-        timesPerDay: '1',
-        durationDays: '5',
-        times: [{ id: 103, timing: '점심', takeTime: '13:00', sortOrder: 1 }],
-      },
-    ],
-  },
-];
+type ApiMessageResponse = {
+  message?: unknown;
+  detail?: unknown;
+};
 
-let mockIntakeLogs: MedicationIntakeLogRecord[] = [
-  {
-    id: 1,
-    medicationScheduleId: 1,
-    medicationScheduleTimeId: 101,
-    status: 'taken',
-    scheduledAt: '2026-08-27T08:00:00.000Z',
-    takenAt: '2026-08-27T08:05:00.000Z',
-    createdAt: '2026-08-27T08:05:00.000Z',
-  },
-];
+type ScheduleTimeApiResponse = {
+  id: number;
+  medicationScheduleId?: number;
+  medicationScheduleMedicineId?: number;
+  timing?: string | null;
+  takeTime?: string | null;
+  sortOrder?: number | null;
+};
 
-function toDateKey(date: Date) {
-  const year = date.getFullYear();
-  const month = `${date.getMonth() + 1}`.padStart(2, '0');
-  const day = `${date.getDate()}`.padStart(2, '0');
-  return `${year}-${month}-${day}`;
-}
+type ScheduleMedicineApiResponse = {
+  id: number;
+  itemSeq?: number | null;
+  customMedicineName?: string | null;
+  dosageAmount?: string | null;
+  dosageUnit?: string | null;
+  timesPerDay?: number | null;
+  durationDays?: number | null;
+  times?: ScheduleTimeApiResponse[];
+};
 
-function buildScheduledAt(date: string, time: string) {
-  return `${date}T${time}:00.000Z`;
-}
+type ScheduleApiResponse = {
+  id: number;
+  hospitalName?: string | null;
+  pharmacyName?: string | null;
+  startDate?: string | null;
+  dispensedDate?: string | null;
+  isActive?: boolean;
+  medicines?: ScheduleMedicineApiResponse[];
+};
 
-export async function fetchSchedules() {
-  return mockSchedules;
-}
+type MedicationIntakeLogApiResponse = {
+  id: number;
+  medicationScheduleId?: number;
+  medicationScheduleTimeId?: number;
+  status?: string | null;
+  scheduledAt?: string | null;
+  takenAt?: string | null;
+  createdAt?: string | null;
+};
 
-export async function fetchScheduleById(id: number) {
-  const schedule = mockSchedules.find((item) => item.id === id);
+type DailyMedicationApiRecord = {
+  medicationScheduleId?: number;
+  medicationScheduleMedicineId?: number;
+  medicationScheduleTimeId?: number;
+  medicationIntakeLogId?: number | null;
+  itemSeq?: number | null;
+  customMedicineName?: string | null;
+  dosageAmount?: string | null;
+  dosageUnit?: string | null;
+  timesPerDay?: number | null;
+  timing?: string | null;
+  takeTime?: string | null;
+  intakeStatus?: string | null;
+  scheduledAt?: string | null;
+  takenAt?: string | null;
+  hospitalName?: string | null;
+  pharmacyName?: string | null;
+};
 
-  if (!schedule) {
-    throw new Error('처방전을 찾지 못했어요.');
+type DailyMedicationApiResponse = {
+  date?: string | null;
+  groups?: {
+    takeTime?: string | null;
+    medications?: DailyMedicationApiRecord[];
+  }[];
+};
+
+function stringifyErrorDetail(detail: unknown) {
+  if (typeof detail === 'string') {
+    return detail;
   }
 
-  return schedule;
+  if (Array.isArray(detail)) {
+    return detail
+      .map((item) => {
+        if (typeof item === 'string') {
+          return item;
+        }
+
+        if (item && typeof item === 'object' && 'msg' in item) {
+          return String(item.msg);
+        }
+
+        return null;
+      })
+      .filter(Boolean)
+      .join('\n');
+  }
+
+  if (detail && typeof detail === 'object' && 'msg' in detail) {
+    return String(detail.msg);
+  }
+
+  return '';
 }
 
-export async function createSchedule(payload: ScheduleSavePayload) {
-  const schedule: ScheduleRecord = {
-    id: Date.now(),
-    hospitalName: payload.hospitalName,
-    pharmacyName: payload.pharmacyName,
+function getErrorMessage(data: ApiMessageResponse | null, fallback: string) {
+  const detailMessage = stringifyErrorDetail(data?.detail);
+  const message = stringifyErrorDetail(data?.message);
+
+  return detailMessage || message || fallback;
+}
+
+async function readJson<T>(response: Response) {
+  return (await response.json().catch(() => null)) as T | ApiMessageResponse | null;
+}
+
+function normalizeTime(value: string | null | undefined) {
+  if (!value) {
+    return '';
+  }
+
+  return value.slice(0, 5);
+}
+
+function toScheduleTime(data: ScheduleTimeApiResponse): ScheduleTime {
+  return {
+    id: data.id,
+    takeTime: normalizeTime(data.takeTime),
+    sortOrder: data.sortOrder ?? 0,
+    timing: data.timing ?? null,
+  };
+}
+
+function toScheduleMedicine(data: ScheduleMedicineApiResponse): ScheduleMedicine {
+  return {
+    id: data.id,
+    itemSeq: data.itemSeq ?? null,
+    customMedicineName: data.customMedicineName ?? '',
+    dosageAmount: data.dosageAmount ?? '',
+    dosageUnit: data.dosageUnit ?? '',
+    timesPerDay: data.timesPerDay === null || data.timesPerDay === undefined ? '' : String(data.timesPerDay),
+    durationDays: data.durationDays === null || data.durationDays === undefined ? '' : String(data.durationDays),
+    times: (data.times ?? []).map(toScheduleTime),
+  };
+}
+
+function toScheduleRecord(data: ScheduleApiResponse): ScheduleRecord {
+  return {
+    id: data.id,
+    hospitalName: data.hospitalName ?? '',
+    pharmacyName: data.pharmacyName ?? '',
+    startDate: data.startDate ?? '',
+    dispensedDate: data.dispensedDate ?? '',
+    isActive: data.isActive ?? true,
+    medicines: (data.medicines ?? []).map(toScheduleMedicine),
+  };
+}
+
+function toMedicationIntakeLog(data: MedicationIntakeLogApiResponse): MedicationIntakeLogRecord {
+  return {
+    id: data.id,
+    medicationScheduleId: data.medicationScheduleId ?? 0,
+    medicationScheduleTimeId: data.medicationScheduleTimeId ?? 0,
+    status: data.status ?? 'pending',
+    scheduledAt: data.scheduledAt ?? '',
+    takenAt: data.takenAt ?? null,
+    createdAt: data.createdAt ?? '',
+  };
+}
+
+function toDailyMedicationRecord(data: DailyMedicationApiRecord): DailyMedicationRecord {
+  return {
+    medicationScheduleId: data.medicationScheduleId ?? 0,
+    medicationScheduleMedicineId: data.medicationScheduleMedicineId ?? 0,
+    medicationScheduleTimeId: data.medicationScheduleTimeId ?? 0,
+    medicationIntakeLogId: data.medicationIntakeLogId ?? null,
+    itemSeq: data.itemSeq ?? null,
+    customMedicineName: data.customMedicineName ?? '',
+    dosageAmount: data.dosageAmount ?? '',
+    dosageUnit: data.dosageUnit ?? '',
+    timesPerDay: data.timesPerDay ?? null,
+    timing: data.timing ?? null,
+    takeTime: normalizeTime(data.takeTime),
+    intakeStatus: data.intakeStatus ?? 'pending',
+    scheduledAt: data.scheduledAt ?? '',
+    takenAt: data.takenAt ?? null,
+    hospitalName: data.hospitalName ?? '',
+    pharmacyName: data.pharmacyName ?? '',
+  };
+}
+
+function toSchedulePayload(payload: ScheduleSavePayload) {
+  return {
+    hospitalName: payload.hospitalName || null,
+    pharmacyName: payload.pharmacyName || null,
     startDate: payload.startDate,
-    dispensedDate: payload.dispensedDate,
-    isActive: true,
-    medicines: payload.medicines.map((medicine, medicineIndex) => ({
-      id: Date.now() + medicineIndex,
+    dispensedDate: payload.dispensedDate || null,
+    medicines: payload.medicines.map((medicine) => ({
+      id: medicine.id ?? null,
       itemSeq: medicine.itemSeq,
       customMedicineName: medicine.customMedicineName,
-      dosageAmount: medicine.dosageAmount,
-      dosageUnit: medicine.dosageUnit,
-      timesPerDay: medicine.timesPerDay === null ? '' : String(medicine.timesPerDay),
-      durationDays: medicine.durationDays === null ? '' : String(medicine.durationDays),
-      times: medicine.times.map((time, timeIndex) => ({
-        id: Date.now() + medicineIndex * 10 + timeIndex,
+      dosageAmount: medicine.dosageAmount || null,
+      dosageUnit: medicine.dosageUnit || null,
+      timesPerDay: medicine.timesPerDay,
+      durationDays: medicine.durationDays,
+      times: medicine.times.map((time) => ({
+        id: time.id ?? null,
+        timing: time.timing ?? null,
         takeTime: time.takeTime,
         sortOrder: time.sortOrder,
-        timing: time.timing,
       })),
     })),
   };
+}
 
-  mockSchedules = [schedule, ...mockSchedules];
-  return schedule;
+function toIntakeLogPayload(payload: MedicationIntakeLogPayload) {
+  return {
+    medicationScheduleId: payload.medicationScheduleId,
+    medicationScheduleTimeId: payload.medicationScheduleTimeId,
+    status: payload.status,
+    scheduledAt: payload.scheduledAt,
+    takenAt: payload.takenAt,
+  };
+}
+
+export async function fetchSchedules() {
+  const response = await apiFetch('/medication-schedules');
+  const data = await readJson<ScheduleApiResponse[]>(response);
+
+  if (!response.ok) {
+    throw new Error(getErrorMessage(data as ApiMessageResponse | null, '복약 일정 목록을 불러오지 못했어요.'));
+  }
+
+  if (!Array.isArray(data)) {
+    throw new Error('복약 일정 목록 응답 형식이 올바르지 않아요.');
+  }
+
+  return data.map(toScheduleRecord);
+}
+
+export async function fetchScheduleById(id: number) {
+  const response = await apiFetch(`/medication-schedules/${id}`);
+  const data = await readJson<ScheduleApiResponse>(response);
+
+  if (!response.ok) {
+    throw new Error(getErrorMessage(data as ApiMessageResponse | null, '처방전을 찾지 못했어요.'));
+  }
+
+  if (!data || Array.isArray(data) || !('id' in data)) {
+    throw new Error('처방전 응답 형식이 올바르지 않아요.');
+  }
+
+  return toScheduleRecord(data as ScheduleApiResponse);
+}
+
+export async function createSchedule(payload: ScheduleSavePayload) {
+  const response = await apiFetch('/medication-schedules', {
+    method: 'POST',
+    body: JSON.stringify(toSchedulePayload(payload)),
+  });
+  const data = await readJson<ScheduleApiResponse>(response);
+
+  if (!response.ok) {
+    throw new Error(getErrorMessage(data as ApiMessageResponse | null, '처방전을 저장하지 못했어요.'));
+  }
+
+  if (!data || Array.isArray(data) || !('id' in data)) {
+    throw new Error('처방전 저장 응답 형식이 올바르지 않아요.');
+  }
+
+  return toScheduleRecord(data as ScheduleApiResponse);
 }
 
 export async function updateSchedule(id: number, payload: ScheduleSavePayload) {
-  const updated = await createSchedule(payload);
-  updated.id = id;
-  mockSchedules = mockSchedules.map((schedule) => (schedule.id === id ? updated : schedule));
-  return updated;
+  const response = await apiFetch(`/medication-schedules/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(toSchedulePayload(payload)),
+  });
+  const data = await readJson<ScheduleApiResponse>(response);
+
+  if (!response.ok) {
+    throw new Error(getErrorMessage(data as ApiMessageResponse | null, '처방전을 수정하지 못했어요.'));
+  }
+
+  if (!data || Array.isArray(data) || !('id' in data)) {
+    throw new Error('처방전 수정 응답 형식이 올바르지 않아요.');
+  }
+
+  return toScheduleRecord(data as ScheduleApiResponse);
 }
 
 export async function deleteSchedule(id: number) {
-  mockSchedules = mockSchedules.filter((schedule) => schedule.id !== id);
+  const response = await apiFetch(`/medication-schedules/${id}`, {
+    method: 'DELETE',
+  });
+
+  if (!response.ok) {
+    const data = await readJson<ApiMessageResponse>(response);
+    throw new Error(getErrorMessage(data as ApiMessageResponse | null, '처방전을 삭제하지 못했어요.'));
+  }
 }
 
 export async function fetchMedicationIntakeLogs(scheduleId: number) {
-  return mockIntakeLogs.filter((log) => log.medicationScheduleId === scheduleId);
+  const params = new URLSearchParams({ medicationScheduleId: String(scheduleId) });
+  const response = await apiFetch(`/medication-intake-logs?${params.toString()}`);
+  const data = await readJson<MedicationIntakeLogApiResponse[]>(response);
+
+  if (!response.ok) {
+    throw new Error(getErrorMessage(data as ApiMessageResponse | null, '복용 기록 목록을 불러오지 못했어요.'));
+  }
+
+  if (!Array.isArray(data)) {
+    throw new Error('복용 기록 목록 응답 형식이 올바르지 않아요.');
+  }
+
+  return data.map(toMedicationIntakeLog);
 }
 
 export async function createMedicationIntakeLog(payload: MedicationIntakeLogPayload) {
-  const log: MedicationIntakeLogRecord = {
-    ...payload,
-    id: Date.now(),
-    createdAt: new Date().toISOString(),
-  };
+  const response = await apiFetch('/medication-intake-logs', {
+    method: 'POST',
+    body: JSON.stringify(toIntakeLogPayload(payload)),
+  });
+  const data = await readJson<MedicationIntakeLogApiResponse>(response);
 
-  mockIntakeLogs = [...mockIntakeLogs, log];
-  return log;
+  if (!response.ok) {
+    throw new Error(getErrorMessage(data as ApiMessageResponse | null, '복용 기록을 저장하지 못했어요.'));
+  }
+
+  if (!data || Array.isArray(data) || !('id' in data)) {
+    throw new Error('복용 기록 저장 응답 형식이 올바르지 않아요.');
+  }
+
+  return toMedicationIntakeLog(data as MedicationIntakeLogApiResponse);
 }
 
 export async function updateMedicationIntakeLog(
   id: number,
   payload: MedicationIntakeLogPayload,
 ) {
-  const updated: MedicationIntakeLogRecord = {
-    ...payload,
-    id,
-    createdAt: new Date().toISOString(),
-  };
+  const response = await apiFetch(`/medication-intake-logs/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(toIntakeLogPayload(payload)),
+  });
+  const data = await readJson<MedicationIntakeLogApiResponse>(response);
 
-  mockIntakeLogs = mockIntakeLogs.map((log) => (log.id === id ? updated : log));
-  return updated;
+  if (!response.ok) {
+    throw new Error(getErrorMessage(data as ApiMessageResponse | null, '복용 기록을 수정하지 못했어요.'));
+  }
+
+  if (!data || Array.isArray(data) || !('id' in data)) {
+    throw new Error('복용 기록 수정 응답 형식이 올바르지 않아요.');
+  }
+
+  return toMedicationIntakeLog(data as MedicationIntakeLogApiResponse);
 }
 
 export async function fetchDailyMedicationSchedule(date: string) {
-  const groupsByTime = new Map<string, DailyMedicationRecord[]>();
+  const params = new URLSearchParams({ date });
+  const response = await apiFetch(`/medication-schedules/daily?${params.toString()}`);
+  const data = await readJson<DailyMedicationApiResponse>(response);
 
-  for (const schedule of mockSchedules) {
-    for (const medicine of schedule.medicines) {
-      for (const time of medicine.times) {
-        const scheduledAt = buildScheduledAt(date, time.takeTime);
-        const log = mockIntakeLogs.find(
-          (item) =>
-            item.medicationScheduleId === schedule.id &&
-            item.medicationScheduleTimeId === time.id &&
-            item.scheduledAt.startsWith(date),
-        );
-        const record: DailyMedicationRecord = {
-          medicationScheduleId: schedule.id,
-          medicationScheduleMedicineId: medicine.id,
-          medicationScheduleTimeId: time.id,
-          medicationIntakeLogId: log?.id ?? null,
-          itemSeq: medicine.itemSeq,
-          customMedicineName: medicine.customMedicineName,
-          dosageAmount: medicine.dosageAmount,
-          dosageUnit: medicine.dosageUnit,
-          timesPerDay: Number(medicine.timesPerDay) || null,
-          timing: time.timing ?? null,
-          takeTime: time.takeTime,
-          intakeStatus: log?.status ?? 'pending',
-          scheduledAt,
-          takenAt: log?.takenAt ?? null,
-          hospitalName: schedule.hospitalName,
-          pharmacyName: schedule.pharmacyName,
-        };
-        const current = groupsByTime.get(time.takeTime) ?? [];
-        groupsByTime.set(time.takeTime, [...current, record]);
-      }
-    }
+  if (!response.ok) {
+    throw new Error(getErrorMessage(data as ApiMessageResponse | null, '선택 날짜 복약 목록을 불러오지 못했어요.'));
   }
 
+  if (!data || Array.isArray(data)) {
+    throw new Error('선택 날짜 복약 목록 응답 형식이 올바르지 않아요.');
+  }
+
+  const dailyData = data as DailyMedicationApiResponse;
+
   return {
-    date: date || toDateKey(new Date()),
-    groups: [...groupsByTime.entries()]
-      .sort(([left], [right]) => left.localeCompare(right))
-      .map(([takeTime, medications]) => ({ takeTime, medications })),
+    date: dailyData.date ?? date,
+    groups: (dailyData.groups ?? []).map((group) => ({
+      takeTime: normalizeTime(group.takeTime),
+      medications: (group.medications ?? []).map(toDailyMedicationRecord),
+    })),
   } satisfies DailyMedicationSchedule;
 }

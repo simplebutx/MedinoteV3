@@ -9,12 +9,21 @@ from app.api.ocr import router as ocr_router
 from app.core.config import settings
 from app.api.health import router as health_router
 from app.api.search import router as search_router
+from app.api.schedule import (
+    intake_log_router,
+    schedule_router,
+    schedule_time_router,
+)
 from app.api.user_caution import router as user_caution_profile_router
 from app.db.mysql import Base, engine
 from app.models import chat as chat_models
 from app.models import disease_master as disease_master_models
 from app.models import medicine_info as medicine_info_models
 from app.models import medicine_ingredient as medicine_ingredient_models
+from app.models import medication_intake_log as medication_intake_log_models
+from app.models import medication_schedule as medication_schedule_models
+from app.models import medication_schedule_medicine as medication_schedule_medicine_models
+from app.models import medication_schedule_time as medication_schedule_time_models
 from app.models import user as user_models
 from app.models import user_caution as user_caution_models
 from app.models import user_disease as user_disease_models
@@ -53,6 +62,12 @@ app.include_router(auth_router)
 app.include_router(user_health_profile_router)
 app.include_router(user_disease_router)
 app.include_router(user_caution_profile_router)
+app.include_router(schedule_router)
+app.include_router(schedule_time_router)
+app.include_router(intake_log_router)
+app.include_router(schedule_router, prefix="/api")
+app.include_router(schedule_time_router, prefix="/api")
+app.include_router(intake_log_router, prefix="/api")
 
 @app.get("/health")
 def health_check():
