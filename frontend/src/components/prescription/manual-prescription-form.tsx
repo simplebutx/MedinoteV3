@@ -38,6 +38,7 @@ type ActiveDatePicker = {
 
 type ManualPrescriptionFormProps = {
   initialPrescription?: PrescriptionRecord;
+  initialSchedule?: PrescriptionSchedule;
 };
 
 const defaultTimes = ["08:00", "12:00", "20:00", "22:00", "23:00"];
@@ -134,8 +135,32 @@ function createScheduleFromPrescription(
   };
 }
 
+function createScheduleFromInitialSchedule(
+  schedule: PrescriptionSchedule,
+): PrescriptionSchedule {
+  return {
+    hospitalName: schedule.hospitalName,
+    pharmacyName: schedule.pharmacyName,
+    dispensedDate: schedule.dispensedDate,
+    medicines: schedule.medicines.map((medicine, index) => {
+      const normalizedTimesPerDay = medicine.timesPerDay || "1";
+
+      return {
+        ...medicine,
+        dosageAmount: medicine.dosageAmount || "1",
+        dosageUnit: medicine.dosageUnit || "정",
+        timesPerDay: normalizedTimesPerDay,
+        durationDays: medicine.durationDays || "1",
+        id: medicine.id || `medicine-${index + 1}`,
+        times: syncTimesWithCount([], Number(normalizedTimesPerDay) || 1),
+      };
+    }),
+  };
+}
+
 export function ManualPrescriptionForm({
   initialPrescription,
+  initialSchedule: initialScheduleFromProps,
 }: ManualPrescriptionFormProps) {
   const router = useRouter();
   const theme = useTheme();
@@ -143,8 +168,10 @@ export function ManualPrescriptionForm({
     () =>
       initialPrescription
         ? createScheduleFromPrescription(initialPrescription)
+        : initialScheduleFromProps
+          ? createScheduleFromInitialSchedule(initialScheduleFromProps)
         : createEmptySchedule(),
-    [initialPrescription],
+    [initialPrescription, initialScheduleFromProps],
   );
   const [schedule, setSchedule] =
     useState<PrescriptionSchedule>(initialSchedule);

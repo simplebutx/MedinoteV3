@@ -1,6 +1,7 @@
 import { Image } from "expo-image";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { useState } from "react";
+import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AppScreen } from "@/components/common/app-screen";
@@ -9,14 +10,80 @@ import { ThemedText } from "@/components/ui/themed-text";
 import { ThemedView } from "@/components/ui/themed-view";
 import { Spacing, TopOverlayClearance } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
+import {
+  analyzeOcrImage,
+  createOcrUploadUrl,
+  uploadImageToPresignedUrl,
+} from "@/services/ocr-api";
+
+function logOcrDebug(message: string, value?: unknown) {
+  const formattedValue =
+    value === undefined ? "" : ` ${JSON.stringify(value, null, 2)}`;
+
+  console.log(`[OCR] ${message}${formattedValue}`);
+  console.warn(`[OCR] ${message}${formattedValue}`);
+}
 
 export default function PrescriptionPhotoPreviewScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const theme = useTheme();
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
   const params = useLocalSearchParams<{ imageUri?: string; source?: string }>();
   const imageUri = Array.isArray(params.imageUri) ? params.imageUri[0] : params.imageUri;
   const source = Array.isArray(params.source) ? params.source[0] : params.source;
+
+  async function handleAnalyzePress() {
+    if (!imageUri || isAnalyzing) {
+      return;
+    }
+
+    try {
+      setIsAnalyzing(true);
+      logOcrDebug("upload-url request started");
+      const { object_key, upload_url } = await createOcrUploadUrl();
+      logOcrDebug("upload-url response received", { object_key });
+
+      logOcrDebug("S3 upload started");
+      await uploadImageToPresignedUrl(upload_url, imageUri);
+      logOcrDebug("S3 upload finished");
+
+      logOcrDebug("analyze request started", { object_key });
+      const result = await analyzeOcrImage(object_key);
+      logOcrDebug("analyze response received", result);
+
+      if (!result.resultJson) {
+        throw new Error(result.errorMessage ?? "OCR 분석 결과가 비어 있어요.");
+      }
+
+      const ocrResultParam = JSON.stringify(result.resultJson);
+
+      Alert.alert(
+        "OCR 분석 결과",
+        JSON.stringify(result.resultJson, null, 2).slice(0, 1600),
+        [
+          {
+            text: "확인",
+            onPress: () =>
+              router.replace({
+                pathname: "/prescription-manual",
+                params: {
+                  ocrResult: ocrResultParam,
+                },
+              }),
+          },
+        ],
+      );
+    } catch (error) {
+      console.error("[OCR] analyze flow failed", error);
+      Alert.alert(
+        "OCR 분석 실패",
+        error instanceof Error ? error.message : "처방전 분석 중 문제가 발생했어요.",
+      );
+    } finally {
+      setIsAnalyzing(false);
+    }
+  }
 
   return (
     <AppScreen showTopAlert={false} showChatbotFab={false}>
@@ -66,13 +133,25 @@ export default function PrescriptionPhotoPreviewScreen() {
         </ThemedView>
 
         <Pressable
-          style={[styles.primaryButton, { backgroundColor: theme.text }]}
+          disabled={!imageUri || isAnalyzing}
+          onPress={handleAnalyzePress}
+          style={[
+            styles.primaryButton,
+            {
+              backgroundColor: theme.text,
+              opacity: !imageUri || isAnalyzing ? 0.55 : 1,
+            },
+          ]}
         >
-          <ThemedText
-            style={[styles.primaryButtonLabel, { color: theme.background }]}
-          >
-            분석하기
-          </ThemedText>
+          {isAnalyzing ? (
+            <ActivityIndicator color={theme.background} />
+          ) : (
+            <ThemedText
+              style={[styles.primaryButtonLabel, { color: theme.background }]}
+            >
+              분석하기
+            </ThemedText>
+          )}
         </Pressable>
       </ScrollView>
     </AppScreen>
