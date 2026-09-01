@@ -39,13 +39,21 @@ function buildMonthDates(baseDate: Date) {
   const year = baseDate.getFullYear();
   const month = baseDate.getMonth();
   const firstDay = new Date(year, month, 1);
+  const lastDay = new Date(year, month + 1, 0);
   const firstGridDate = new Date(firstDay);
+  const lastGridDate = new Date(lastDay);
+
   firstGridDate.setDate(firstDay.getDate() - firstDay.getDay());
+  lastGridDate.setDate(lastDay.getDate() + (6 - lastDay.getDay()));
 
   const today = new Date();
   const cells: CalendarCell[] = [];
+  const dayCount =
+    Math.round(
+      (lastGridDate.getTime() - firstGridDate.getTime()) / (24 * 60 * 60 * 1000),
+    ) + 1;
 
-  for (let index = 0; index < 42; index += 1) {
+  for (let index = 0; index < dayCount; index += 1) {
     const cellDate = new Date(firstGridDate);
     cellDate.setDate(firstGridDate.getDate() + index);
 

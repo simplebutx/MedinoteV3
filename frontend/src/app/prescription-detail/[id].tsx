@@ -21,6 +21,9 @@ import { ThemedText } from "@/components/ui/themed-text";
 import { ThemedView } from "@/components/ui/themed-view";
 import { Spacing, TopOverlayClearance } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
+import {
+  createPrescriptionAnalysis,
+} from "@/services/analysis-api";
 import { cancelMedicationNotifications } from "@/services/medication-notification-service";
 import { deleteSchedule, fetchScheduleById } from "@/services/schedule-api";
 
@@ -31,6 +34,7 @@ export default function PrescriptionDetailScreen() {
   const params = useLocalSearchParams<{ id?: string }>();
   const [prescription, setPrescription] = useState<PrescriptionRecord | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isAnalysisLoading, setIsAnalysisLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
   useEffect(() => {
@@ -101,6 +105,33 @@ export default function PrescriptionDetailScreen() {
         },
       },
     ]);
+  };
+
+  const handleAnalysisPress = async () => {
+    if (!prescription || isAnalysisLoading) {
+      return;
+    }
+
+    setIsAnalysisLoading(true);
+
+    try {
+      const scheduleId = Number(prescription.id);
+      const analysis = await createPrescriptionAnalysis(scheduleId);
+
+      router.push({
+        pathname: "/prescription-analysis/[id]",
+        params: { id: prescription.id, analysisId: String(analysis.id) },
+      });
+    } catch (error) {
+      Alert.alert(
+        "AI 복약 점검",
+        error instanceof Error && error.message
+          ? error.message
+          : "처방전 분석을 시작하지 못했어요.",
+      );
+    } finally {
+      setIsAnalysisLoading(false);
+    }
   };
 
   if (isLoading) {
@@ -220,21 +251,28 @@ export default function PrescriptionDetailScreen() {
         </View>
 
         <Pressable
-          onPress={() =>
-            router.push({
-              pathname: "/prescription-analysis/[id]",
-              params: { id: prescription.id },
-            })
-          }
-          style={styles.aiAnalysisButton}
+          disabled={isAnalysisLoading}
+          onPress={handleAnalysisPress}
+          style={[
+            styles.aiAnalysisButton,
+            isAnalysisLoading && styles.aiAnalysisButtonDisabled,
+          ]}
         >
           <View style={styles.aiButtonIcon}>
-            <ThemedText style={styles.aiButtonIconText}>AI</ThemedText>
+            {isAnalysisLoading ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <ThemedText style={styles.aiButtonIconText}>AI</ThemedText>
+            )}
           </View>
           <View style={styles.aiButtonCopy}>
-            <ThemedText style={styles.aiButtonTitle}>AI 복약 점검</ThemedText>
+            <ThemedText style={styles.aiButtonTitle}>
+              {isAnalysisLoading ? "분석 중이에요" : "AI 복약 점검"}
+            </ThemedText>
             <ThemedText style={styles.aiButtonSubtext}>
-              처방전 주의사항과 개인 건강정보를 함께 확인해요.
+              {isAnalysisLoading
+                ? "약 정보와 개인 주의 항목을 확인하고 있어요."
+                : "처방전 주의사항과 개인 건강정보를 함께 확인해요."}
             </ThemedText>
           </View>
         </Pressable>
@@ -414,6 +452,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: Spacing.three,
     backgroundColor: "#208AEF",
+  },
+  aiAnalysisButtonDisabled: {
+    opacity: 0.72,
   },
   aiButtonIcon: {
     width: 48,

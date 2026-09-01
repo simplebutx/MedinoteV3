@@ -1,4 +1,4 @@
-import { Ionicons } from "@expo/vector-icons";
+import { AppIcon as Ionicons } from "@/components/ui/app-icon";
 import DateTimePicker, {
   DateTimePickerEvent,
 } from "@react-native-community/datetimepicker";
@@ -184,6 +184,7 @@ export function ManualPrescriptionForm({
   } | null>(null);
   const [activeDatePicker, setActiveDatePicker] =
     useState<ActiveDatePicker>(null);
+  const [pendingPickerDate, setPendingPickerDate] = useState<Date | null>(null);
   const [activeUnitMedicineId, setActiveUnitMedicineId] = useState<
     string | null
   >(null);
@@ -310,6 +311,21 @@ export function ManualPrescriptionForm({
     );
   };
 
+  const openDatePicker = () => {
+    setPendingPickerDate(parseDate(schedule.dispensedDate));
+    setActiveDatePicker({
+      field: "dispensedDate",
+    });
+  };
+
+  const openTimePicker = (medicineId: string, timeId: string) => {
+    setPendingPickerDate(parseTime(getTimeValue(schedule, medicineId, timeId)));
+    setActiveTimePicker({
+      medicineId,
+      timeId,
+    });
+  };
+
   const handleTimeChange = (
     event: DateTimePickerEvent,
     selectedDate?: Date,
@@ -319,18 +335,23 @@ export function ManualPrescriptionForm({
     }
 
     if (Platform.OS === "android") {
+      if (event.type !== "dismissed" && selectedDate) {
+        updateTime(
+          activeTimePicker.medicineId,
+          activeTimePicker.timeId,
+          formatPickerTime(event, selectedDate),
+        );
+      }
       setActiveTimePicker(null);
+      setPendingPickerDate(null);
+      return;
     }
 
     if (event.type === "dismissed" || !selectedDate) {
       return;
     }
 
-    updateTime(
-      activeTimePicker.medicineId,
-      activeTimePicker.timeId,
-      formatPickerTime(event, selectedDate),
-    );
+    setPendingPickerDate(selectedDate);
   };
 
   const handleDateChange = (
@@ -342,14 +363,47 @@ export function ManualPrescriptionForm({
     }
 
     if (Platform.OS === "android") {
+      if (event.type !== "dismissed" && selectedDate) {
+        updateScheduleField("dispensedDate", formatPickerDate(event, selectedDate));
+      }
       setActiveDatePicker(null);
+      setPendingPickerDate(null);
+      return;
     }
 
     if (event.type === "dismissed" || !selectedDate) {
       return;
     }
 
-    updateScheduleField("dispensedDate", formatPickerDate(event, selectedDate));
+    setPendingPickerDate(selectedDate);
+  };
+
+  const cancelPicker = () => {
+    setActiveDatePicker(null);
+    setActiveTimePicker(null);
+    setPendingPickerDate(null);
+  };
+
+  const confirmDatePicker = () => {
+    if (!pendingPickerDate) {
+      return;
+    }
+
+    updateScheduleField("dispensedDate", formatDateFromDate(pendingPickerDate));
+    cancelPicker();
+  };
+
+  const confirmTimePicker = () => {
+    if (!activeTimePicker || !pendingPickerDate) {
+      return;
+    }
+
+    updateTime(
+      activeTimePicker.medicineId,
+      activeTimePicker.timeId,
+      formatTimeFromDate(pendingPickerDate),
+    );
+    cancelPicker();
   };
 
   const activeTimeValue = activeTimePicker
@@ -416,12 +470,21 @@ export function ManualPrescriptionForm({
           label="조제일"
           value={schedule.dispensedDate}
           placeholder="날짜를 선택하세요"
-          onPress={() =>
-            setActiveDatePicker({
-              field: "dispensedDate",
-            })
-          }
+          onPress={openDatePicker}
         />
+        {activeDatePicker ? (
+          <View style={styles.inlinePickerWrap}>
+            <DateTimePicker
+              display={Platform.OS === "ios" ? "spinner" : "default"}
+              mode="date"
+              onChange={handleDateChange}
+              value={pendingPickerDate ?? parseDate(activeDateValue)}
+            />
+            {Platform.OS === "ios" ? (
+              <PickerActionRow onCancel={cancelPicker} onConfirm={confirmDatePicker} />
+            ) : null}
+          </View>
+        ) : null}
       </SectionShell>
 
       {schedule.medicines.map((medicine, medicineIndex) => {
@@ -551,10 +614,7 @@ export function ManualPrescriptionForm({
                         <View style={styles.timeChipRow}>
                           <Pressable
                             onPress={() =>
-                              setActiveTimePicker({
-                                medicineId: medicine.id,
-                                timeId: time.id,
-                              })
+                              openTimePicker(medicine.id, time.id)
                             }
                             style={styles.timeChipValueButton}
                           >
@@ -571,6 +631,19 @@ export function ManualPrescriptionForm({
                       </ThemedView>
                     ))}
                   </View>
+                  {activeTimePicker?.medicineId === medicine.id ? (
+                    <View style={styles.inlinePickerWrap}>
+                      <DateTimePicker
+                        display={Platform.OS === "ios" ? "spinner" : "default"}
+                        mode="time"
+                        onChange={handleTimeChange}
+                        value={pendingPickerDate ?? parseTime(activeTimeValue)}
+                      />
+                      {Platform.OS === "ios" ? (
+                        <PickerActionRow onCancel={cancelPicker} onConfirm={confirmTimePicker} />
+                      ) : null}
+                    </View>
+                  ) : null}
                 </View>
               </ThemedView>
             ) : null}
@@ -633,28 +706,6 @@ export function ManualPrescriptionForm({
           </ThemedText>
         )}
       </Pressable>
-
-      {activeTimePicker ? (
-        <View style={styles.pickerWrap}>
-          <DateTimePicker
-            display={Platform.OS === "ios" ? "spinner" : "default"}
-            mode="time"
-            onChange={handleTimeChange}
-            value={parseTime(activeTimeValue)}
-          />
-        </View>
-      ) : null}
-
-      {activeDatePicker ? (
-        <View style={styles.pickerWrap}>
-          <DateTimePicker
-            display={Platform.OS === "ios" ? "spinner" : "default"}
-            mode="date"
-            onChange={handleDateChange}
-            value={parseDate(activeDateValue)}
-          />
-        </View>
-      ) : null}
 
       <UnitSelectorModal
         activeMedicineId={activeUnitMedicineId}
@@ -824,6 +875,36 @@ function SelectField({ label, value, onPress }: SelectFieldProps) {
           <ThemedText style={styles.selectValue}>{value}</ThemedText>
           <Ionicons name="chevron-down" size={16} color={theme.textSecondary} />
         </ThemedView>
+      </Pressable>
+    </View>
+  );
+}
+
+type PickerActionRowProps = {
+  onCancel: () => void;
+  onConfirm: () => void;
+};
+
+function PickerActionRow({ onCancel, onConfirm }: PickerActionRowProps) {
+  const theme = useTheme();
+
+  return (
+    <View style={styles.pickerActionRow}>
+      <Pressable
+        onPress={onCancel}
+        style={[styles.pickerActionButton, { backgroundColor: theme.backgroundSelected }]}
+      >
+        <ThemedText themeColor="textSecondary" style={styles.pickerActionLabel}>
+          취소
+        </ThemedText>
+      </Pressable>
+      <Pressable
+        onPress={onConfirm}
+        style={[styles.pickerActionButton, { backgroundColor: theme.text }]}
+      >
+        <ThemedText style={[styles.pickerActionLabel, { color: theme.background }]}>
+          확인
+        </ThemedText>
       </Pressable>
     </View>
   );
@@ -1041,6 +1122,19 @@ function formatPickerDate(event: DateTimePickerEvent, date: Date) {
   return `${year}-${month}-${day}`;
 }
 
+function formatTimeFromDate(date: Date) {
+  const hours = `${date.getHours()}`.padStart(2, "0");
+  const minutes = `${date.getMinutes()}`.padStart(2, "0");
+  return `${hours}:${minutes}`;
+}
+
+function formatDateFromDate(date: Date) {
+  const year = date.getFullYear();
+  const month = `${date.getMonth() + 1}`.padStart(2, "0");
+  const day = `${date.getDate()}`.padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 function toPickerWallClockDate(event: DateTimePickerEvent, fallbackDate: Date) {
   const { timestamp, utcOffset } = event.nativeEvent;
 
@@ -1231,31 +1325,33 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     flexWrap: "wrap",
     justifyContent: "flex-start",
-    gap: 10,
+    columnGap: 8,
+    rowGap: 10,
     paddingTop: 2,
   },
   timeChipCard: {
     flexGrow: 0,
     flexShrink: 0,
-    width: 108,
-    borderRadius: 16,
-    paddingHorizontal: 10,
+    width: "31.4%",
+    minHeight: 46,
+    borderRadius: 14,
+    paddingHorizontal: 6,
     paddingVertical: 10,
   },
   timeChipRow: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    gap: 8,
+    justifyContent: "center",
   },
   timeChipValueButton: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
+    justifyContent: "center",
+    gap: 2,
     flex: 1,
   },
   timeChipValue: {
-    fontSize: 17,
+    fontSize: 16,
     lineHeight: 20,
     fontWeight: "700",
   },
@@ -1304,8 +1400,30 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     fontWeight: "700",
   },
-  pickerWrap: {
-    alignItems: "flex-start",
+  inlinePickerWrap: {
+    width: "100%",
+    alignItems: "center",
+    gap: 8,
+    overflow: "hidden",
+  },
+  pickerActionRow: {
+    width: "100%",
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    gap: 8,
+  },
+  pickerActionButton: {
+    minWidth: 72,
+    height: 38,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 14,
+  },
+  pickerActionLabel: {
+    fontSize: 14,
+    lineHeight: 18,
+    fontWeight: "700",
   },
   feedbackText: {
     fontSize: 13,

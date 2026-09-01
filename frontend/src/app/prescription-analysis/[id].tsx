@@ -1,6 +1,6 @@
-import { Ionicons } from "@expo/vector-icons";
+import { AppIcon as Ionicons } from "@/components/ui/app-icon";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -20,6 +20,13 @@ import { ThemedText } from "@/components/ui/themed-text";
 import { ThemedView } from "@/components/ui/themed-view";
 import { Spacing, TopOverlayClearance } from "@/constants/theme";
 import { useTheme } from "@/hooks/use-theme";
+import {
+  createPrescriptionAnalysis,
+  fetchLatestPrescriptionAnalysis,
+  fetchPrescriptionAnalysisById,
+  type PrescriptionAnalysisMedicine,
+  type PrescriptionAnalysisResult,
+} from "@/services/analysis-api";
 import { fetchScheduleById } from "@/services/schedule-api";
 
 type AnalysisSeverity = "safe" | "caution" | "warning";
@@ -30,26 +37,26 @@ type AnalysisItem = {
   severity: AnalysisSeverity;
 };
 
-type MockAnalysis = {
-  keyChecks: AnalysisItem[];
+type MedicineReport = {
+  scheduleMedicineId: number | null;
+  medicineName: string;
+  dosageAmount: string | null;
+  dosageUnit: string | null;
   personalChecks: AnalysisItem[];
-  scheduleChecks: AnalysisItem[];
 };
 
 export default function PrescriptionAnalysisScreen() {
   const router = useRouter();
   const theme = useTheme();
   const insets = useSafeAreaInsets();
-  const params = useLocalSearchParams<{ id?: string }>();
+  const params = useLocalSearchParams<{ id?: string; analysisId?: string }>();
   const [prescription, setPrescription] = useState<PrescriptionRecord | null>(
     null,
   );
+  const [analysisResult, setAnalysisResult] =
+    useState<PrescriptionAnalysisResult | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
-  const analysis = useMemo(
-    () => (prescription ? buildMockAnalysis(prescription) : null),
-    [prescription],
-  );
 
   useEffect(() => {
     let mounted = true;
@@ -63,12 +70,20 @@ export default function PrescriptionAnalysisScreen() {
 
       setIsLoading(true);
       setErrorMessage("");
+      setAnalysisResult(null);
 
       try {
         const schedule = await fetchScheduleById(Number(params.id));
+        const prescriptionRecord = toPrescriptionRecord(schedule);
+        const existingAnalysis = params.analysisId
+          ? await fetchPrescriptionAnalysisById(Number(params.analysisId))
+          : await fetchLatestPrescriptionAnalysis(schedule.id);
+        const analysis =
+          existingAnalysis ?? (await createPrescriptionAnalysis(schedule.id));
 
         if (mounted) {
-          setPrescription(toPrescriptionRecord(schedule));
+          setPrescription(prescriptionRecord);
+          setAnalysisResult(analysis.resultJson);
         }
       } catch (error) {
         if (mounted) {
@@ -90,7 +105,7 @@ export default function PrescriptionAnalysisScreen() {
     return () => {
       mounted = false;
     };
-  }, [params.id]);
+  }, [params.analysisId, params.id]);
 
   return (
     <AppScreen showChatbotFab={false} showTopAlert={false}>
@@ -125,10 +140,7 @@ export default function PrescriptionAnalysisScreen() {
             <ThemedText type="small" themeColor="textSecondary">
               AI CHECK
             </ThemedText>
-            <ThemedText type="subtitle">AI 복약 점검</ThemedText>
-            <ThemedText themeColor="textSecondary" style={styles.titleSubtext}>
-              처방전 정보와 개인 건강정보를 바탕으로 주의할 점을 정리합니다.
-            </ThemedText>
+            <ThemedText type="subtitle">AI 처방전 분석</ThemedText>
           </View>
 
           {isLoading ? (
@@ -136,7 +148,7 @@ export default function PrescriptionAnalysisScreen() {
               <ActivityIndicator />
               <ThemedText type="smallBold">처방전을 분석하는 중이에요.</ThemedText>
               <ThemedText type="small" themeColor="textSecondary">
-                약 정보, 복용 시간, 개인 주의 항목을 함께 확인하고 있어요.
+                약 정보와 개인 주의 항목을 함께 확인하고 있어요.
               </ThemedText>
             </ThemedView>
           ) : null}
@@ -150,39 +162,20 @@ export default function PrescriptionAnalysisScreen() {
             </ThemedView>
           ) : null}
 
-          {!isLoading && prescription && analysis ? (
+          {!isLoading && prescription && analysisResult ? (
             <>
-              <ThemedView type="backgroundElement" style={styles.summaryCard}>
-                <View style={styles.summaryTopRow}>
-                  <View style={styles.riskBadge}>
-                    <ThemedText style={styles.riskBadgeText}>주의</ThemedText>
-                  </View>
-                  <ThemedText themeColor="textSecondary" style={styles.mockLabel}>
-                    MOCK RESULT
-                  </ThemedText>
-                </View>
-
-                <ThemedText style={styles.summaryTitle}>
-                  {prescription.medicines.length}개 약 기준으로 점검했어요.
-                </ThemedText>
-                <ThemedText themeColor="textSecondary" style={styles.summaryBody}>
-                  현재 화면은 가짜 분석 결과입니다. 실제 AI 연결 후에는 일반
-                  주의사항, 개인 기저질환, 건강상태, 주의 약/성분을 함께
-                  반영합니다.
-                </ThemedText>
-              </ThemedView>
-
-              <AnalysisSection title="꼭 확인할 점" items={analysis.keyChecks} />
-              <AnalysisSection title="개인화 점검" items={analysis.personalChecks} />
-              <AnalysisSection title="복용 방법 점검" items={analysis.scheduleChecks} />
+              <AnalysisSummaryCard
+                prescription={prescription}
+                analysisResult={analysisResult}
+              />
 
               <View style={styles.section}>
                 <ThemedText style={styles.sectionTitle}>약별 분석</ThemedText>
                 <View style={styles.medicineAnalysisList}>
-                  {prescription.medicines.map((medicine) => (
+                  {getMedicineReports(analysisResult, prescription).map((report) => (
                     <MedicineAnalysisCard
-                      key={medicine.id}
-                      medicine={medicine}
+                      key={`${report.scheduleMedicineId ?? "medicine"}-${report.medicineName}`}
+                      report={report}
                     />
                   ))}
                 </View>
@@ -207,121 +200,147 @@ export default function PrescriptionAnalysisScreen() {
   );
 }
 
-function AnalysisSection({
-  title,
-  items,
+function AnalysisSummaryCard({
+  prescription,
+  analysisResult,
 }: {
-  title: string;
-  items: AnalysisItem[];
+  prescription: PrescriptionRecord;
+  analysisResult: PrescriptionAnalysisResult;
 }) {
-  return (
-    <View style={styles.section}>
-      <ThemedText style={styles.sectionTitle}>{title}</ThemedText>
-      <View style={styles.analysisList}>
-        {items.map((item) => (
-          <AnalysisItemCard key={`${title}-${item.title}`} item={item} />
-        ))}
-      </View>
-    </View>
-  );
-}
-
-function AnalysisItemCard({ item }: { item: AnalysisItem }) {
   const theme = useTheme();
-  const meta = getSeverityMeta(item.severity);
+  const medicineCount = prescription.medicines.length;
+  const summaryMessage =
+    analysisResult.summary.message ||
+    `${medicineCount}개 약을 개인 정보 기준으로 점검했어요. 아래 약별 분석에서 표시된 주의 항목을 먼저 살펴보세요.`;
 
   return (
-    <ThemedView type="backgroundElement" style={styles.analysisItemCard}>
-      <View style={styles.analysisItemTopRow}>
-        <View style={[styles.severityIcon, { backgroundColor: meta.background }]}>
-          <Ionicons name={meta.icon} size={17} color={meta.color} />
+    <ThemedView type="backgroundElement" style={styles.summaryCard}>
+      <View style={styles.summaryTopRow}>
+        <View style={styles.summaryIcon}>
+          <Ionicons
+            name="sparkles-outline"
+            size={18}
+            color={theme.textSecondary}
+          />
         </View>
-        <ThemedText style={styles.analysisItemTitle}>{item.title}</ThemedText>
+        <ThemedText style={styles.summaryEyebrow}>총정리</ThemedText>
       </View>
-      <ThemedText themeColor="textSecondary" style={styles.analysisItemBody}>
-        {item.body}
+      <ThemedText style={styles.summaryTitle}>
+        {analysisResult.summary.title || "총정리"}
       </ThemedText>
-      <View
-        style={[styles.softDivider, { backgroundColor: theme.backgroundSelected }]}
-      />
+      <ThemedText themeColor="textSecondary" style={styles.summaryBody}>
+        {summaryMessage}
+      </ThemedText>
     </ThemedView>
   );
 }
 
-function MedicineAnalysisCard({ medicine }: { medicine: PrescriptionMedicine }) {
+function MedicineAnalysisCard({
+  report,
+}: {
+  report: MedicineReport;
+}) {
+  const theme = useTheme();
+
   return (
     <ThemedView type="backgroundElement" style={styles.medicineCard}>
       <View style={styles.medicineTopRow}>
         <ThemedText style={styles.medicineName}>
-          {medicine.customMedicineName || "약 이름 미입력"}
+          {report.medicineName || "약 이름 미입력"}
         </ThemedText>
         <ThemedText themeColor="textSecondary" style={styles.medicineMeta}>
-          {medicine.dosageAmount}
-          {medicine.dosageUnit}
+          {report.dosageAmount}
+          {report.dosageUnit}
         </ThemedText>
       </View>
-      <ThemedText themeColor="textSecondary" style={styles.medicineDescription}>
-        하루 {medicine.timesPerDay || "1"}회, {medicine.durationDays || "1"}일
-        복용으로 등록되어 있어요. 실제 분석에서는 이 약의 주의사항과 개인
-        위험요인을 함께 보여줍니다.
-      </ThemedText>
-      <View style={styles.timeChipRow}>
-        {medicine.times.map((time) => (
-          <ThemedView key={time.id} type="background" style={styles.timeChip}>
-            <ThemedText style={styles.timeChipText}>{time.takeTime}</ThemedText>
-          </ThemedView>
-        ))}
+      <View style={styles.medicineCheckList}>
+        {report.personalChecks.map((item) => {
+          const checkMeta = getSeverityMeta(item.severity);
+
+          return (
+            <View
+              key={`${report.medicineName}-${item.title}`}
+              style={[
+                styles.medicineReportGroup,
+                { borderTopColor: theme.backgroundSelected },
+              ]}
+            >
+              <View style={styles.analysisItemTopRow}>
+                <View
+                  style={[
+                    styles.severityIcon,
+                    { backgroundColor: checkMeta.background },
+                  ]}
+                >
+                  <Ionicons
+                    name={checkMeta.icon}
+                    size={17}
+                    color={checkMeta.color}
+                  />
+                </View>
+                <ThemedText style={styles.analysisItemTitle}>
+                  {item.title}
+                </ThemedText>
+              </View>
+              <ThemedText themeColor="textSecondary" style={styles.analysisItemBody}>
+                {item.body}
+              </ThemedText>
+            </View>
+          );
+        })}
       </View>
     </ThemedView>
   );
 }
 
-function buildMockAnalysis(prescription: PrescriptionRecord): MockAnalysis {
-  const medicineNames = prescription.medicines
-    .map((medicine) => medicine.customMedicineName)
-    .filter(Boolean);
-  const firstMedicineName = medicineNames[0] ?? "등록된 약";
+function getMedicineReports(
+  analysisResult: PrescriptionAnalysisResult,
+  prescription: PrescriptionRecord,
+): MedicineReport[] {
+  if (analysisResult.medicines.length > 0) {
+    return analysisResult.medicines.map(toMedicineReport);
+  }
+
+  return prescription.medicines.map(buildFallbackMedicineReport);
+}
+
+function toMedicineReport(medicine: PrescriptionAnalysisMedicine): MedicineReport {
+  return {
+    scheduleMedicineId: medicine.scheduleMedicineId,
+    medicineName: medicine.medicineName,
+    dosageAmount: medicine.dosageAmount,
+    dosageUnit: medicine.dosageUnit,
+    personalChecks: medicine.checks.map((check) => ({
+      title: check.title,
+      body: check.message,
+      severity: check.severity,
+    })),
+  };
+}
+
+function buildFallbackMedicineReport(medicine: PrescriptionMedicine): MedicineReport {
+  const medicineName = medicine.customMedicineName || "이 약";
 
   return {
-    keyChecks: [
-      {
-        title: "일반 주의사항 확인 필요",
-        body: `${firstMedicineName}의 효능, 복용법, 주의사항, 이상반응 정보를 기준으로 핵심 항목을 요약할 예정입니다.`,
-        severity: "caution" as const,
-      },
-      {
-        title: "중복 성분 점검",
-        body: "같은 성분 또는 비슷한 효능의 약이 함께 등록되어 있는지 확인합니다.",
-        severity: prescription.medicines.length > 1 ? "caution" : "safe",
-      },
-    ],
+    scheduleMedicineId: Number(medicine.id),
+    medicineName,
+    dosageAmount: medicine.dosageAmount || null,
+    dosageUnit: medicine.dosageUnit || null,
     personalChecks: [
       {
         title: "기저질환과의 관련성",
-        body: "사용자가 등록한 질환 정보를 함께 보내서 복용 전 확인할 주의 항목을 찾습니다.",
+        body: `${medicineName}이 사용자가 등록한 질환과 관련해 복용 전 확인이 필요한 약인지 점검합니다.`,
         severity: "caution" as const,
       },
       {
         title: "건강상태 기반 주의",
-        body: "임신, 수유, 흡연, 음주, 소아, 고령 여부에 따라 추가 주의가 필요한지 분석합니다.",
+        body: "임신, 수유, 흡연, 음주, 소아, 고령 여부에 따라 이 약에 추가 주의가 필요한지 확인합니다.",
         severity: "caution" as const,
       },
       {
         title: "주의 약/성분 매칭",
-        body: "못 먹는 약이나 성분으로 등록한 항목과 처방전의 약 정보를 비교합니다.",
+        body: `${medicineName} 또는 포함 성분이 사용자의 주의 약/성분 목록과 일치하는지 비교합니다.`,
         severity: "warning" as const,
-      },
-    ],
-    scheduleChecks: [
-      {
-        title: "복용 시간 간격",
-        body: "복용 시간이 너무 가깝거나 하루 횟수와 맞지 않는 입력이 있는지 확인합니다.",
-        severity: "safe" as const,
-      },
-      {
-        title: "복용 기간",
-        body: `${prescription.dispensedDate}부터 약별 복용 일수를 기준으로 일정이 생성됩니다.`,
-        severity: "safe" as const,
       },
     ],
   };
@@ -395,43 +414,36 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
   },
   summaryCard: {
-    borderRadius: 22,
+    borderRadius: 20,
     padding: Spacing.three,
     gap: Spacing.two,
   },
   summaryTopRow: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
     gap: Spacing.two,
   },
-  riskBadge: {
-    minHeight: 30,
-    borderRadius: 15,
-    paddingHorizontal: 12,
+  summaryIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(245, 190, 70, 0.24)",
+    backgroundColor: "rgba(60, 135, 247, 0.14)",
   },
-  riskBadgeText: {
-    color: "#F3E4B0",
-    fontSize: 12,
-    lineHeight: 16,
-    fontWeight: "800",
-  },
-  mockLabel: {
-    fontSize: 12,
-    lineHeight: 16,
+  summaryEyebrow: {
+    fontSize: 14,
+    lineHeight: 19,
     fontWeight: "800",
   },
   summaryTitle: {
-    fontSize: 22,
-    lineHeight: 28,
+    fontSize: 20,
+    lineHeight: 26,
     fontWeight: "800",
   },
   summaryBody: {
-    fontSize: 15,
-    lineHeight: 22,
+    fontSize: 14,
+    lineHeight: 21,
   },
   section: {
     gap: Spacing.two,
@@ -440,14 +452,6 @@ const styles = StyleSheet.create({
     fontSize: 20,
     lineHeight: 24,
     fontWeight: "800",
-  },
-  analysisList: {
-    gap: Spacing.two,
-  },
-  analysisItemCard: {
-    borderRadius: 18,
-    padding: Spacing.three,
-    gap: Spacing.two,
   },
   analysisItemTopRow: {
     flexDirection: "row",
@@ -470,10 +474,6 @@ const styles = StyleSheet.create({
   analysisItemBody: {
     fontSize: 14,
     lineHeight: 21,
-  },
-  softDivider: {
-    height: 1,
-    opacity: 0.7,
   },
   medicineAnalysisList: {
     gap: Spacing.two,
@@ -500,26 +500,13 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     fontWeight: "700",
   },
-  medicineDescription: {
-    fontSize: 14,
-    lineHeight: 21,
+  medicineReportGroup: {
+    borderTopWidth: 1,
+    paddingTop: Spacing.two,
+    gap: Spacing.one,
   },
-  timeChipRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
+  medicineCheckList: {
     gap: Spacing.two,
-  },
-  timeChip: {
-    minHeight: 34,
-    borderRadius: 13,
-    paddingHorizontal: 12,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  timeChipText: {
-    fontSize: 13,
-    lineHeight: 18,
-    fontWeight: "800",
   },
   noticeCard: {
     borderRadius: 18,

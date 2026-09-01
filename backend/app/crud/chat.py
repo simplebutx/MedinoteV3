@@ -1,6 +1,6 @@
 from uuid import uuid4
 
-from sqlalchemy import select
+from sqlalchemy import exists, select
 from sqlalchemy.orm import Session
 from sqlalchemy.sql import func
 
@@ -28,7 +28,10 @@ def create_chat_room(
 def get_chat_rooms(db: Session, user_id: int) -> list[ChatRoom]:
     stmt = (
         select(ChatRoom)
-        .where(ChatRoom.user_id == user_id)
+        .where(
+            ChatRoom.user_id == user_id,
+            exists().where(ChatMessage.room_id == ChatRoom.id),
+        )
         .order_by(ChatRoom.updated_at.desc())
     )
 
