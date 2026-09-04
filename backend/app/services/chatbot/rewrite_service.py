@@ -60,7 +60,9 @@ def rewrite_question(
         ),
     ])
 
-    chain = prompt | get_chat_model() | StrOutputParser()
+    chain = (prompt | get_chat_model() | StrOutputParser()).with_retry(
+        stop_after_attempt=3, wait_exponential_jitter=True
+    )
 
     return chain.invoke({
         "medicine_name": medicine_name,

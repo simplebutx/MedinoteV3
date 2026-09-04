@@ -14,6 +14,8 @@ def get_chat_model():
         model=CHAT_MODEL,
         api_key=settings.openai_api_key,
         temperature=0,
+        timeout = 30,
+        max_retries=0
     )
 
 
@@ -69,7 +71,8 @@ def generate_answer_from_context(
         ),
     ])
 
-    chain = prompt | get_chat_model() | StrOutputParser()
+    chain = (prompt | get_chat_model() | StrOutputParser()).with_retry(
+        stop_after_attempt=3, wait_exponential_jitter=True,)
 
     return chain.invoke(
         {

@@ -85,7 +85,11 @@ JSON 형식:
         ]
     )
 
-    return prompt | _get_chat_model() | StrOutputParser()
+    chain = (prompt | _get_chat_model() | StrOutputParser()).with_retry(
+        stop_after_attempt=3, wait_exponential_jitter=True
+    )
+
+    return chain
 
 
 def _get_chat_model() -> ChatOpenAI:
@@ -93,6 +97,8 @@ def _get_chat_model() -> ChatOpenAI:
         model=CHAT_MODEL,
         api_key=settings.openai_api_key,
         temperature=0,
+        timeout=30,
+        max_retries=0
     )
 
 

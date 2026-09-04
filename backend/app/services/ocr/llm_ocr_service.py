@@ -5,7 +5,7 @@ from openai import OpenAI
 
 from app.core.config import settings
 
-client = OpenAI(api_key=settings.openai_api_key)
+client = OpenAI(api_key=settings.openai_api_key, timeout=30.0, max_retries=2,)
 PLACEHOLDER_MEDICINE_NAMES = {
     "",
     "약",

@@ -6,6 +6,7 @@ def get_qdrant_client() -> QdrantClient:
     return QdrantClient(
         host=settings.qdrant_host,
         port=settings.qdrant_port,
+        timeout=30,
     )
 
 

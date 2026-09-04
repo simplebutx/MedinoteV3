@@ -92,6 +92,10 @@ def get_embeddings():
     return OpenAIEmbeddings(
         model=EMBEDDING_MODEL,
         api_key=settings.openai_api_key,
+        request_timeout=30,
+        max_retries=2,
+        retry_min_seconds=2,
+        retry_max_seconds=10,
     )
 
 # Qdrant VectorStore 객체: 검색기 객체 - 벡터 컬렉션 연결
