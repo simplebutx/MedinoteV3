@@ -22,8 +22,13 @@ import {
   deleteMedicationNotification,
   fetchMedicationNotifications,
   markMedicationNotificationRead,
-  type MedicationNotificationRecord,
+type MedicationNotificationRecord,
 } from "@/services/notification-api";
+
+type NotificationListItem = MedicationNotificationRecord & {
+  groupedIds: number[];
+  groupedMedicineName: string;
+};
 
 export default function NotificationsScreen() {
   const router = useRouter();
@@ -35,9 +40,40 @@ export default function NotificationsScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const displayNotifications = useMemo<NotificationListItem[]>(() => {
+    const grouped = new Map<string, NotificationListItem>();
+
+    for (const notification of notifications) {
+      const key = [
+        notification.medicationScheduleId,
+        notification.scheduledAt,
+      ].join(":");
+      const existing = grouped.get(key);
+
+      if (!existing) {
+        grouped.set(key, {
+          ...notification,
+          groupedIds: [notification.id],
+          groupedMedicineName: getNotificationMedicineName(notification.body),
+        });
+        continue;
+      }
+
+      existing.groupedIds.push(notification.id);
+      existing.readAt = existing.readAt && notification.readAt ? existing.readAt : null;
+      existing.body = `${existing.groupedMedicineName} 외 ${
+        existing.groupedIds.length - 1
+      }개 약을 복용할 시간입니다.`;
+    }
+
+    return [...grouped.values()].sort(
+      (left, right) =>
+        new Date(right.scheduledAt).getTime() - new Date(left.scheduledAt).getTime(),
+    );
+  }, [notifications]);
   const unreadCount = useMemo(
-    () => notifications.filter((notification) => !notification.readAt).length,
-    [notifications],
+    () => displayNotifications.filter((notification) => !notification.readAt).length,
+    [displayNotifications],
   );
 
   const loadNotifications = useCallback(async () => {
@@ -71,20 +107,21 @@ export default function NotificationsScreen() {
   }, [loadNotifications]);
 
   const handleRead = useCallback(
-    async (notification: MedicationNotificationRecord) => {
+    async (notification: NotificationListItem) => {
       if (notification.readAt) {
         return;
       }
 
       try {
-        const updatedNotification = await markMedicationNotificationRead(
-          notification.id,
+        const updatedNotifications = await Promise.all(
+          notification.groupedIds.map((id) => markMedicationNotificationRead(id)),
+        );
+        const updatedById = new Map(
+          updatedNotifications.map((updatedNotification) => [updatedNotification.id, updatedNotification]),
         );
         setNotifications((currentNotifications) =>
-          currentNotifications.map((currentNotification) =>
-            currentNotification.id === updatedNotification.id
-              ? updatedNotification
-              : currentNotification,
+          currentNotifications.map(
+            (currentNotification) => updatedById.get(currentNotification.id) ?? currentNotification,
           ),
         );
       } catch (error) {
@@ -100,7 +137,7 @@ export default function NotificationsScreen() {
   );
 
   const handleOpenNotification = useCallback(
-    async (notification: MedicationNotificationRecord) => {
+    async (notification: NotificationListItem) => {
       await handleRead(notification);
       router.push("/(tabs)/schedule");
     },
@@ -108,7 +145,7 @@ export default function NotificationsScreen() {
   );
 
   const handleDelete = useCallback(
-    (notification: MedicationNotificationRecord) => {
+    (notification: NotificationListItem) => {
       Alert.alert("알림 삭제", "이 알림을 삭제할까요?", [
         { text: "취소", style: "cancel" },
         {
@@ -116,11 +153,13 @@ export default function NotificationsScreen() {
           style: "destructive",
           onPress: async () => {
             try {
-              await deleteMedicationNotification(notification.id);
+              await Promise.all(
+                notification.groupedIds.map((id) => deleteMedicationNotification(id)),
+              );
               setNotifications((currentNotifications) =>
                 currentNotifications.filter(
                   (currentNotification) =>
-                    currentNotification.id !== notification.id,
+                    !notification.groupedIds.includes(currentNotification.id),
                 ),
               );
             } catch (error) {
@@ -186,19 +225,17 @@ export default function NotificationsScreen() {
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.headerRow}>
-            <Pressable
-              onPress={() => router.back()}
-              style={[
-                styles.iconButton,
-                { backgroundColor: theme.backgroundElement },
-              ]}
-            >
-              <Ionicons
-                name="chevron-back"
-                size={24}
-                color={theme.textSecondary}
-              />
-            </Pressable>
+            <View style={styles.titleBlock}>
+              <ThemedText type="small" themeColor="textSecondary">
+                NOTIFICATIONS
+              </ThemedText>
+              <ThemedText type="subtitle">알림</ThemedText>
+              <ThemedText themeColor="textSecondary" style={styles.summaryText}>
+                {unreadCount > 0
+                  ? `읽지 않은 복약 알림 ${unreadCount}개`
+                  : "읽지 않은 복약 알림이 없어요."}
+              </ThemedText>
+            </View>
 
             <Pressable
               onPress={handleDeleteAll}
@@ -217,18 +254,6 @@ export default function NotificationsScreen() {
                 color={theme.textSecondary}
               />
             </Pressable>
-          </View>
-
-          <View style={styles.titleBlock}>
-            <ThemedText type="small" themeColor="textSecondary">
-              NOTIFICATIONS
-            </ThemedText>
-            <ThemedText type="subtitle">알림</ThemedText>
-            <ThemedText themeColor="textSecondary" style={styles.summaryText}>
-              {unreadCount > 0
-                ? `읽지 않은 복약 알림 ${unreadCount}개`
-                : "읽지 않은 복약 알림이 없어요."}
-            </ThemedText>
           </View>
 
           {errorMessage ? (
@@ -279,9 +304,9 @@ export default function NotificationsScreen() {
             </ThemedView>
           ) : null}
 
-          {!isLoading && !errorMessage && notifications.length > 0 ? (
+          {!isLoading && !errorMessage && displayNotifications.length > 0 ? (
             <View style={styles.notificationList}>
-              {notifications.map((notification) => (
+              {displayNotifications.map((notification) => (
                 <NotificationCard
                   key={notification.id}
                   notification={notification}
@@ -427,6 +452,10 @@ function isPastDate(value: string) {
   return Number.isFinite(date.getTime()) && date <= new Date();
 }
 
+function getNotificationMedicineName(body: string) {
+  return body.replace(/\s*복용할 시간입니다\.?\s*$/, '').trim() || '약';
+}
+
 function formatDateTime(value: string) {
   const date = new Date(value);
 
@@ -452,7 +481,7 @@ const styles = StyleSheet.create({
   },
   headerRow: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-start",
     justifyContent: "space-between",
   },
   iconButton: {

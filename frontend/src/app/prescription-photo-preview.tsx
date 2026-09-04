@@ -58,22 +58,12 @@ export default function PrescriptionPhotoPreviewScreen() {
 
       const ocrResultParam = JSON.stringify(result.resultJson);
 
-      Alert.alert(
-        "OCR 분석 결과",
-        JSON.stringify(result.resultJson, null, 2).slice(0, 1600),
-        [
-          {
-            text: "확인",
-            onPress: () =>
-              router.replace({
-                pathname: "/prescription-manual",
-                params: {
-                  ocrResult: ocrResultParam,
-                },
-              }),
-          },
-        ],
-      );
+      router.replace({
+        pathname: "/prescription-manual",
+        params: {
+          ocrResult: ocrResultParam,
+        },
+      });
     } catch (error) {
       console.error("[OCR] analyze flow failed", error);
       Alert.alert(

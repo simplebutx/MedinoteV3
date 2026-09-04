@@ -158,7 +158,7 @@ export default function ScheduleScreen() {
   );
 
   return (
-    <AppScreen showTopAlert={false}>
+    <AppScreen showTopAlert={false} showChatbotFab>
       <ThemedView style={styles.screen}>
         <ScrollView
           contentContainerStyle={[

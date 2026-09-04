@@ -69,6 +69,8 @@ export function WarningItemSection() {
     () => cautions.filter((item) => item.targetType === activeTargetType),
     [activeTargetType, cautions]
   );
+  const isSearchGroupOpen =
+    Boolean(selectedCaution) || suggestions.length > 0 || isLoadingSuggestions;
 
   useEffect(() => {
     const loadCautions = async () => {
@@ -90,6 +92,12 @@ export function WarningItemSection() {
   }, []);
 
   useEffect(() => {
+    if (selectedCaution) {
+      setSuggestions([]);
+      setIsLoadingSuggestions(false);
+      return;
+    }
+
     const trimmedKeyword = keyword.trim();
 
     if (!trimmedKeyword) {
@@ -120,7 +128,7 @@ export function WarningItemSection() {
     }, 250);
 
     return () => clearTimeout(timeoutId);
-  }, [activeTargetType, keyword]);
+  }, [activeTargetType, keyword, selectedCaution]);
 
   const handleKeywordChange = (value: string) => {
     setKeyword(value);
@@ -141,19 +149,17 @@ export function WarningItemSection() {
   };
 
   const handleSelectSuggestion = (caution: CautionSuggestion) => {
+    setSuggestions([]);
+    setIsLoadingSuggestions(false);
     setSelectedCaution(caution);
+    setKeyword(
+      caution.targetType === 'MEDICINE'
+        ? caution.itemName
+        : caution.ingredientName,
+    );
     setSelectedReason('OTHER');
     setCustomReason('');
     setFeedbackMessage('');
-  };
-
-  const clearSelectedCaution = () => {
-    if (isCreating) {
-      return;
-    }
-
-    setSelectedCaution(null);
-    setCustomReason('');
   };
 
   const handleReasonSelect = (reason: CautionReason) => {
@@ -260,10 +266,13 @@ export function WarningItemSection() {
         value={keyword}
         onChangeText={handleKeywordChange}
         onClear={clearKeyword}
+        style={isSearchGroupOpen ? styles.connectedSearchField : undefined}
       />
 
       {isLoadingSuggestions ? (
-        <ThemedView type="backgroundElement" style={styles.feedbackCard}>
+        <ThemedView
+          type="backgroundElement"
+          style={[styles.feedbackCard, styles.connectedSuggestionList]}>
           <ActivityIndicator />
           <ThemedText themeColor="textSecondary">
             자동완성 결과를 불러오는 중이에요.
@@ -273,40 +282,6 @@ export function WarningItemSection() {
 
       {selectedCaution ? (
         <ThemedView type="backgroundElement" style={styles.selectionCard}>
-          <View style={styles.selectionHeader}>
-            <View style={styles.rowCopy}>
-              <ThemedText themeColor="textSecondary" style={styles.selectionLabel}>
-                후보 선택
-              </ThemedText>
-              <ThemedText style={styles.selectedTitle}>
-                {selectedCaution.targetType === 'MEDICINE'
-                  ? selectedCaution.itemName
-                  : selectedCaution.ingredientName}
-              </ThemedText>
-              {selectedCaution.targetType === 'INGREDIENT' && selectedCaution.itemName ? (
-                <ThemedText themeColor="textSecondary" style={styles.itemMeta}>
-                  포함 약: {selectedCaution.itemName}
-                </ThemedText>
-              ) : null}
-            </View>
-            <Pressable
-              onPress={clearSelectedCaution}
-              disabled={isCreating}
-              style={[
-                styles.iconButton,
-                { backgroundColor: theme.backgroundSelected },
-              ]}>
-              <Ionicons name="close" size={18} color={theme.textSecondary} />
-            </Pressable>
-          </View>
-
-          <View
-            style={[
-              styles.sectionDivider,
-              { backgroundColor: theme.backgroundSelected },
-            ]}
-          />
-
           <View style={styles.reasonSection}>
             <ThemedText themeColor="textSecondary" style={styles.reasonLabel}>
               등록 사유
@@ -376,7 +351,9 @@ export function WarningItemSection() {
           </Pressable>
         </ThemedView>
       ) : suggestions.length > 0 ? (
-        <ThemedView type="backgroundElement" style={styles.listCard}>
+        <ThemedView
+          type="backgroundElement"
+          style={[styles.listCard, styles.connectedSuggestionList]}>
           {suggestions.map((item, index) => {
             const primaryText =
               activeTargetType === 'MEDICINE' ? item.itemName : item.ingredientName;
@@ -552,14 +529,11 @@ const styles = StyleSheet.create({
   },
   selectionCard: {
     borderRadius: 18,
+    marginTop: -Spacing.four,
+    borderTopLeftRadius: 0,
+    borderTopRightRadius: 0,
     padding: Spacing.three,
     gap: Spacing.three,
-  },
-  selectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    gap: Spacing.two,
   },
   selectionLabel: {
     fontSize: 13,
@@ -578,6 +552,15 @@ const styles = StyleSheet.create({
   feedbackText: {
     fontSize: 13,
     lineHeight: 18,
+  },
+  connectedSearchField: {
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
+  },
+  connectedSuggestionList: {
+    marginTop: -Spacing.four,
+    borderTopLeftRadius: 0,
+    borderTopRightRadius: 0,
   },
   row: {
     minHeight: 56,
@@ -617,15 +600,6 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     height: 1,
-  },
-  selectedTitle: {
-    fontSize: 17,
-    lineHeight: 22,
-    fontWeight: '700',
-  },
-  sectionDivider: {
-    height: 1,
-    opacity: 0.7,
   },
   reasonSection: {
     gap: Spacing.two,

@@ -335,4 +335,6 @@ def _normalize_datetime(value: datetime | None) -> datetime | None:
 
 
 def _now_naive_utc() -> datetime:
-    return datetime.now(timezone.utc).replace(tzinfo=None)
+    # Schedule times are stored as local wall-clock values, so compare them
+    # with the same local clock when deciding which notifications are visible.
+    return datetime.now()

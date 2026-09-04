@@ -22,6 +22,7 @@ const sfSymbolByIoniconName: Partial<Record<IoniconName, SFSymbol>> = {
   'chatbubble-ellipses': 'bubble.left.and.bubble.right',
   'chevron-back': 'chevron.left',
   'chevron-down': 'chevron.down',
+  'chevron-forward': 'chevron.right',
   'chevron-up': 'chevron.up',
   close: 'xmark',
   'create-outline': 'square.and.pencil',

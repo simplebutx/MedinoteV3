@@ -6,12 +6,12 @@ import {
   TabTrigger,
   TabTriggerSlotProps,
 } from "expo-router/ui";
-import { Pressable, StyleSheet, useColorScheme, View } from "react-native";
+import { Pressable, StyleSheet, View } from "react-native";
 
 import { ThemedText } from "../ui/themed-text";
 import { ThemedView } from "../ui/themed-view";
 
-import { Colors, MaxContentWidth, Spacing } from "@/constants/theme";
+import { MaxContentWidth, Spacing } from "@/constants/theme";
 
 const tabs = [
   { name: "calendar", href: "./", label: "달력", badge: "달" },
@@ -71,16 +71,13 @@ export function TabButton({
 }
 
 export function CustomTabList(props: TabListProps) {
-  const scheme = useColorScheme();
-  const colors = Colors[scheme ?? "light"];
-
   return (
     <View {...props} style={styles.tabListContainer}>
       <ThemedView
         type="backgroundElement"
         style={[
           styles.innerContainer,
-          { borderColor: colors.backgroundSelected },
+          { borderColor: '#2E3135', backgroundColor: '#212225' },
         ]}
       >
         {props.children}

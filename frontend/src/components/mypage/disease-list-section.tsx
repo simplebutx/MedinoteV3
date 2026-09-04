@@ -84,6 +84,10 @@ export function DiseaseListSection() {
   const hasExactSuggestion = suggestions.some(
     (item) => item.diseaseName.trim() === trimmedKeyword
   );
+  const isSearchGroupOpen =
+    isLoadingSuggestions ||
+    suggestions.length > 0 ||
+    Boolean(trimmedKeyword && !hasExactSuggestion);
 
   const clearKeyword = () => {
     setKeyword('');
@@ -141,10 +145,13 @@ export function DiseaseListSection() {
         value={keyword}
         onChangeText={setKeyword}
         onClear={clearKeyword}
+        style={isSearchGroupOpen ? styles.connectedSearchField : undefined}
       />
 
       {isLoadingSuggestions ? (
-        <ThemedView type="backgroundElement" style={styles.feedbackCard}>
+        <ThemedView
+          type="backgroundElement"
+          style={[styles.feedbackCard, styles.connectedSuggestionList]}>
           <ActivityIndicator />
           <ThemedText themeColor="textSecondary">
             자동완성 결과를 불러오는 중이에요.
@@ -153,7 +160,9 @@ export function DiseaseListSection() {
       ) : null}
 
       {suggestions.length > 0 ? (
-        <ThemedView type="backgroundElement" style={styles.listCard}>
+        <ThemedView
+          type="backgroundElement"
+          style={[styles.listCard, styles.connectedSuggestionList]}>
           {suggestions.map((item, index) => (
             <Pressable
               key={`${item.diseaseCode}-${item.diseaseName}`}
@@ -179,7 +188,9 @@ export function DiseaseListSection() {
       ) : null}
 
       {trimmedKeyword && !isLoadingSuggestions && !hasExactSuggestion ? (
-        <ThemedView type="backgroundElement" style={styles.listCard}>
+        <ThemedView
+          type="backgroundElement"
+          style={[styles.listCard, styles.connectedSuggestionList]}>
           <Pressable
             onPress={() => {
               void handleCreateCustom();
@@ -291,6 +302,15 @@ const styles = StyleSheet.create({
   feedbackText: {
     fontSize: 13,
     lineHeight: 18,
+  },
+  connectedSearchField: {
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
+  },
+  connectedSuggestionList: {
+    marginTop: -Spacing.four,
+    borderTopLeftRadius: 0,
+    borderTopRightRadius: 0,
   },
   row: {
     minHeight: 56,

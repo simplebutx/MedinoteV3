@@ -18,7 +18,7 @@ export default function AddScreen() {
   const insets = useSafeAreaInsets();
 
   return (
-    <AppScreen showTopAlert={false}>
+    <AppScreen showTopAlert={false} showChatbotFab>
       <ThemedView style={styles.screen}>
         <View
           style={[

@@ -70,7 +70,7 @@ export default function AccountInfoScreen() {
         contentContainerStyle={[
           styles.content,
           {
-            paddingTop: insets.top + TopOverlayClearance + 28,
+            paddingTop: insets.top + TopOverlayClearance,
             paddingBottom: insets.bottom + 120,
           },
         ]}

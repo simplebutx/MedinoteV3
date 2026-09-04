@@ -108,6 +108,7 @@ def _retrieve_for_query(medicine_name: str, query: str) -> list[dict[str, Any]]:
                 "score": score,
                 "medicineId": metadata.get("medicine_id"),
                 "documentType": metadata.get("document_type"),
+                "sectionTitle": metadata.get("section_title"),
                 "sourceName": metadata.get("source_name") or DEFAULT_SOURCE_NAME,
                 "sourceUrl": metadata.get("source_url") or DEFAULT_SOURCE_URL,
             }

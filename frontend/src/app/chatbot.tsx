@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -256,14 +257,6 @@ export default function ChatbotScreen() {
     }
   }
 
-  function showRoomList() {
-    setView('rooms');
-    setQuestion('');
-    setSelectedMedicine(null);
-    setMedicineSuggestions([]);
-    void loadRooms();
-  }
-
   function selectMedicine(medicine: SelectedMedicine) {
     const nextQuestion = question.replace(
       /(^|\s)@[^\s@]*$/,
@@ -283,6 +276,7 @@ export default function ChatbotScreen() {
       return;
     }
 
+    Keyboard.dismiss();
     setQuestion('');
     setMessages((current) => [
       ...current,
@@ -340,8 +334,8 @@ export default function ChatbotScreen() {
           pressed && styles.pressedItem,
         ]}
       >
-        <View style={styles.roomAvatar}>
-          <ThemedText style={styles.roomAvatarText}>{title.slice(0, 1)}</ThemedText>
+        <View style={styles.roomIcon}>
+          <Ionicons name="sparkles-outline" size={19} color="#58A6FF" />
         </View>
         <View style={styles.roomCopy}>
           <ThemedText numberOfLines={1} style={styles.roomTitle}>
@@ -393,16 +387,17 @@ export default function ChatbotScreen() {
     <AppScreen showChatbotFab={false}>
       <ThemedView style={styles.screen}>
         <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          keyboardVerticalOffset={insets.top + TopOverlayClearance}
+          behavior={Platform.OS === 'ios' ? 'height' : undefined}
+          keyboardVerticalOffset={0}
           style={styles.keyboardView}
         >
           <View
             style={[
               styles.content,
               {
-                paddingTop: insets.top + TopOverlayClearance + 28,
-                paddingBottom: insets.bottom + Spacing.three,
+                paddingTop:
+                  insets.top + (view === 'rooms' ? TopOverlayClearance : 0),
+                paddingBottom: 0,
               },
             ]}
           >
@@ -411,9 +406,9 @@ export default function ChatbotScreen() {
                 <View style={styles.headerRow}>
                   <View style={styles.headerCopy}>
                     <ThemedText themeColor="textSecondary" style={styles.eyebrow}>
-                      AI CHAT
+                      CHATBOT
                     </ThemedText>
-                    <ThemedText style={styles.title}>채팅</ThemedText>
+                    <ThemedText style={styles.title}>AI 복약 챗봇</ThemedText>
                   </View>
                   <Pressable
                     disabled={isRoomLoading}
@@ -461,11 +456,13 @@ export default function ChatbotScreen() {
               </>
             ) : (
               <>
-                <View style={styles.detailHeaderRow}>
-                  <Pressable onPress={showRoomList} style={styles.backButton}>
-                    <Ionicons name="chevron-back" size={18} color={theme.text} />
-                    <ThemedText style={styles.backButtonText}>채팅 목록</ThemedText>
-                  </Pressable>
+                <View style={styles.headerRow}>
+                  <View style={styles.headerCopy}>
+                    <ThemedText themeColor="textSecondary" style={styles.eyebrow}>
+                      CHATBOT
+                    </ThemedText>
+                    <ThemedText style={styles.title}>AI 복약 챗봇</ThemedText>
+                  </View>
                   <Pressable
                     disabled={!activeRoomId || isRoomLoading}
                     onPress={() => {
@@ -477,16 +474,10 @@ export default function ChatbotScreen() {
                   </Pressable>
                 </View>
 
-                <View style={styles.headerCopy}>
-                  <ThemedText themeColor="textSecondary" style={styles.eyebrow}>
-                    AI CHAT
-                  </ThemedText>
-                  <ThemedText style={styles.title}>복약 AI 챗봇</ThemedText>
-                </View>
-
                 <FlatList
                   ref={listRef}
                   data={messages}
+                  style={styles.messageListContainer}
                   keyExtractor={(item) => item.id}
                   onContentSizeChange={() =>
                     listRef.current?.scrollToEnd({ animated: true })
@@ -567,6 +558,7 @@ export default function ChatbotScreen() {
                 <View
                   style={[
                     styles.inputBar,
+                    !shouldShowMedicineSuggestions && styles.inputBarConnected,
                     { backgroundColor: theme.backgroundElement },
                   ]}
                 >
@@ -620,13 +612,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: Spacing.two,
   },
-  detailHeaderRow: {
-    minHeight: 36,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: Spacing.two,
-  },
   headerCopy: {
     gap: Spacing.one,
   },
@@ -646,17 +631,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#1F7A5C',
-  },
-  backButton: {
-    minHeight: 36,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.one,
-  },
-  backButtonText: {
-    fontSize: 14,
-    lineHeight: 20,
-    fontWeight: '700',
   },
   deleteButton: {
     width: 38,
@@ -686,19 +660,11 @@ const styles = StyleSheet.create({
   pressedItem: {
     opacity: 0.72,
   },
-  roomAvatar: {
-    width: 42,
-    height: 42,
-    borderRadius: 14,
+  roomIcon: {
+    width: 28,
+    height: 28,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#2F6F7E',
-  },
-  roomAvatarText: {
-    color: '#FFFFFF',
-    fontSize: 17,
-    lineHeight: 22,
-    fontWeight: '800',
   },
   roomCopy: {
     flex: 1,
@@ -747,6 +713,9 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
     justifyContent: 'flex-end',
     paddingVertical: Spacing.one,
+  },
+  messageListContainer: {
+    flex: 1,
   },
   messageRow: {
     flexDirection: 'row',
@@ -836,6 +805,9 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
     borderRadius: 8,
     padding: Spacing.two,
+  },
+  inputBarConnected: {
+    marginTop: -Spacing.three,
   },
   input: {
     maxHeight: 112,

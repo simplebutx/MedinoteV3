@@ -11,7 +11,7 @@ type AppScreenProps = PropsWithChildren<{
 
 export function AppScreen({
   children,
-  showChatbotFab = true,
+  showChatbotFab = false,
 }: AppScreenProps) {
   const router = useRouter();
 

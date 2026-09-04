@@ -1,10 +1,16 @@
 import { AppIcon as Ionicons } from '@/components/ui/app-icon';
-import { Pressable, StyleSheet, TextInput, View } from 'react-native';
+import {
+  Pressable,
+  StyleProp,
+  StyleSheet,
+  TextInput,
+  View,
+  ViewStyle,
+} from 'react-native';
 
 import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
-import { ThemedText } from '../ui/themed-text';
 import { ThemedView } from '../ui/themed-view';
 
 type MyPageSearchFieldProps = {
@@ -13,6 +19,7 @@ type MyPageSearchFieldProps = {
   onChangeText?: (text: string) => void;
   onClear?: () => void;
   onSubmitEditing?: () => void;
+  style?: StyleProp<ViewStyle>;
 };
 
 export function MyPageSearchField({
@@ -21,17 +28,16 @@ export function MyPageSearchField({
   onChangeText,
   onClear,
   onSubmitEditing,
+  style,
 }: MyPageSearchFieldProps) {
   const theme = useTheme();
   const canClear = Boolean(value && onClear);
 
   return (
-    <ThemedView type="backgroundElement" style={styles.container}>
+    <ThemedView type="backgroundElement" style={[styles.container, style]}>
       <View
         style={[styles.iconWrap, { backgroundColor: theme.backgroundSelected }]}>
-        <ThemedText type="smallBold" themeColor="textSecondary">
-          Q
-        </ThemedText>
+        <Ionicons name="search-outline" size={17} color={theme.textSecondary} />
       </View>
 
       <TextInput

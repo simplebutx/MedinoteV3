@@ -209,9 +209,7 @@ function AnalysisSummaryCard({
 }) {
   const theme = useTheme();
   const medicineCount = prescription.medicines.length;
-  const summaryMessage =
-    analysisResult.summary.message ||
-    `${medicineCount}개 약을 개인 정보 기준으로 점검했어요. 아래 약별 분석에서 표시된 주의 항목을 먼저 살펴보세요.`;
+  const summaryMessage = buildAnalysisSummaryMessage(analysisResult, medicineCount);
 
   return (
     <ThemedView type="backgroundElement" style={styles.summaryCard}>
@@ -226,12 +224,60 @@ function AnalysisSummaryCard({
         <ThemedText style={styles.summaryEyebrow}>총정리</ThemedText>
       </View>
       <ThemedText style={styles.summaryTitle}>
-        {analysisResult.summary.title || "총정리"}
+        {analysisResult.summary.title && analysisResult.summary.title !== '총정리'
+          ? analysisResult.summary.title
+          : '주요 주의사항'}
       </ThemedText>
       <ThemedText themeColor="textSecondary" style={styles.summaryBody}>
         {summaryMessage}
       </ThemedText>
     </ThemedView>
+  );
+}
+
+function buildAnalysisSummaryMessage(
+  analysisResult: PrescriptionAnalysisResult,
+  medicineCount: number,
+) {
+  const summary = analysisResult.summary.message?.trim();
+  const genericSummary =
+    !summary ||
+    summary.includes('개 약을 개인 정보 기준으로 점검했어요') ||
+    summary === '약물 복용 시 주의사항을 확인하세요.';
+
+  if (!genericSummary) {
+    return summary;
+  }
+
+  const highlightedMessages = analysisResult.medicines
+    .map((medicine) => {
+      const check = medicine.checks
+        .filter((item) => item.severity === 'warning' || item.severity === 'caution')
+        .sort((left, right) => {
+          const severityOrder = { warning: 0, caution: 1, safe: 2 };
+          return severityOrder[left.severity] - severityOrder[right.severity];
+        })[0];
+
+      if (!check?.message?.trim()) {
+        return null;
+      }
+
+      const medicineName = medicine.medicineName
+        .split('(수출명', 1)[0]
+        .replace(/\([^)]*\)/g, '')
+        .trim();
+      const message = check.message.trim().replace(/[.。]+$/, '');
+
+      return message.startsWith(medicineName)
+        ? `${message}.`
+        : `${medicineName}은 ${message}.`;
+    })
+    .filter((message): message is string => Boolean(message))
+    .slice(0, 3);
+
+  return (
+    highlightedMessages.join(' ') ||
+    `${medicineCount}개 약에서 등록된 건강정보 기준의 직접 주의 항목은 크게 확인되지 않았어요.`
   );
 }
 

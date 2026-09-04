@@ -12,5 +12,5 @@ def generate_prescription_analysis(
     schedule: MedicationSchedule,
 ) -> dict:
     context = build_analysis_context(db=db, user_id=user_id, schedule=schedule)
-    context_with_evidence = attach_retrieval_context(context)
-    return generate_analysis_with_llm(context_with_evidence)
+    reference_context = attach_retrieval_context(context)
+    return generate_analysis_with_llm(reference_context)

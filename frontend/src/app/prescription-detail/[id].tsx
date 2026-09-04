@@ -17,6 +17,7 @@ import {
   type PrescriptionMedicine,
   type PrescriptionRecord,
 } from "@/components/prescription/prescription-types";
+import { AppIcon as Ionicons } from "@/components/ui/app-icon";
 import { ThemedText } from "@/components/ui/themed-text";
 import { ThemedView } from "@/components/ui/themed-view";
 import { Spacing, TopOverlayClearance } from "@/constants/theme";
@@ -220,22 +221,12 @@ export default function PrescriptionDetailScreen() {
 
         <View style={styles.section}>
           <ThemedText style={styles.sectionTitle}>약 목록</ThemedText>
-          <View style={styles.medicineList}>
+          <ThemedView type="backgroundElement" style={styles.medicineList}>
             {prescription.medicines.map((medicine, index) => (
-              <ThemedView
-                key={medicine.id}
-                type="backgroundElement"
-                style={styles.medicineCard}
-              >
+              <View key={medicine.id} style={styles.medicineRow}>
                 <View style={styles.medicineHeader}>
                   <ThemedText style={styles.medicineName}>
                     {medicine.customMedicineName}
-                  </ThemedText>
-                  <ThemedText
-                    themeColor="textSecondary"
-                    style={styles.medicineBadge}
-                  >
-                    약 {index + 1}
                   </ThemedText>
                 </View>
 
@@ -245,36 +236,41 @@ export default function PrescriptionDetailScreen() {
                 >
                   {buildMedicineSummary(medicine)}
                 </ThemedText>
-              </ThemedView>
+                {index < prescription.medicines.length - 1 ? (
+                  <View
+                    style={[
+                      styles.medicineDivider,
+                      { backgroundColor: theme.backgroundSelected },
+                    ]}
+                  />
+                ) : null}
+              </View>
             ))}
-          </View>
+          </ThemedView>
         </View>
 
         <Pressable
           disabled={isAnalysisLoading}
           onPress={handleAnalysisPress}
-          style={[
+          style={({ pressed }) => [
             styles.aiAnalysisButton,
+            pressed && styles.pressedItem,
             isAnalysisLoading && styles.aiAnalysisButtonDisabled,
           ]}
         >
-          <View style={styles.aiButtonIcon}>
-            {isAnalysisLoading ? (
-              <ActivityIndicator color="#FFFFFF" />
-            ) : (
-              <ThemedText style={styles.aiButtonIconText}>AI</ThemedText>
-            )}
-          </View>
           <View style={styles.aiButtonCopy}>
+            <View style={styles.aiButtonIcon}>
+              {isAnalysisLoading ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <Ionicons name="sparkles" size={16} color="#FFFFFF" />
+              )}
+            </View>
             <ThemedText style={styles.aiButtonTitle}>
-              {isAnalysisLoading ? "분석 중이에요" : "AI 복약 점검"}
-            </ThemedText>
-            <ThemedText style={styles.aiButtonSubtext}>
-              {isAnalysisLoading
-                ? "약 정보와 개인 주의 항목을 확인하고 있어요."
-                : "처방전 주의사항과 개인 건강정보를 함께 확인해요."}
+              {isAnalysisLoading ? "AI 분석 중" : "AI 처방전 분석"}
             </ThemedText>
           </View>
+          <Ionicons name="chevron-forward" size={18} color="#FFFFFF" />
         </Pressable>
 
         <View style={styles.actionRow}>
@@ -417,12 +413,15 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   medicineList: {
-    gap: Spacing.two,
+    borderRadius: 18,
+    overflow: "hidden",
   },
-  medicineCard: {
-    borderRadius: 20,
-    padding: 16,
-    gap: 10,
+  medicineRow: {
+    minHeight: 82,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    gap: 8,
+    position: "relative",
   },
   medicineHeader: {
     flexDirection: "row",
@@ -444,47 +443,49 @@ const styles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 20,
   },
+  medicineDivider: {
+    position: "absolute",
+    left: 16,
+    right: 0,
+    bottom: 0,
+    height: 1,
+    opacity: 0.72,
+  },
   aiAnalysisButton: {
-    minHeight: 82,
-    borderRadius: 20,
-    padding: Spacing.three,
+    minHeight: 58,
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     flexDirection: "row",
     alignItems: "center",
-    gap: Spacing.three,
+    justifyContent: "space-between",
+    gap: Spacing.two,
     backgroundColor: "#208AEF",
   },
   aiAnalysisButtonDisabled: {
     opacity: 0.72,
   },
   aiButtonIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 16,
+    width: 32,
+    height: 32,
+    borderRadius: 11,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "rgba(255, 255, 255, 0.18)",
   },
-  aiButtonIconText: {
-    color: "#FFFFFF",
-    fontSize: 15,
-    lineHeight: 18,
-    fontWeight: "800",
-  },
   aiButtonCopy: {
-    flex: 1,
-    gap: 3,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.two,
   },
   aiButtonTitle: {
     color: "#FFFFFF",
-    fontSize: 19,
-    lineHeight: 24,
+    fontSize: 15,
+    lineHeight: 20,
     fontWeight: "800",
   },
-  aiButtonSubtext: {
-    color: "rgba(255, 255, 255, 0.78)",
-    fontSize: 13,
-    lineHeight: 18,
-    fontWeight: "600",
+  pressedItem: {
+    opacity: 0.72,
   },
   actionRow: {
     flexDirection: "row",

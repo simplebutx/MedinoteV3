@@ -130,6 +130,7 @@ def normalize_medicine_name(value: str) -> str:
     normalized = value.lower()
     normalized = re.sub(r"\([^)]*\)", "", normalized)
     normalized = re.sub(r"\[[^\]]*\]", "", normalized)
+    normalized = normalized.replace("그램", "그람")
     normalized = re.sub(r"[^0-9a-z가-힣]+", "", normalized)
 
     return normalized
