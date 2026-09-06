@@ -29,3 +29,5 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
+
+# Expo CLI may update this file when generating TypeScript route types.

@@ -1,10 +1,9 @@
 import { apiFetch } from './api-client';
 
-export type AnalysisSeverity = 'safe' | 'caution' | 'warning';
+export type AnalysisSeverity = 'safe' | 'warning';
 
 export type PrescriptionAnalysisCheck = {
   type: string;
-  title: string;
   severity: AnalysisSeverity;
   message: string;
 };
@@ -18,10 +17,6 @@ export type PrescriptionAnalysisMedicine = {
 };
 
 export type PrescriptionAnalysisResult = {
-  summary: {
-    title: string;
-    message: string;
-  };
   medicines: PrescriptionAnalysisMedicine[];
 };
 
@@ -103,10 +98,6 @@ function toPrescriptionAnalysis(
     scheduleId: data.scheduleId ?? data.schedule_id ?? 0,
     userId: data.userId ?? data.user_id ?? 0,
     resultJson: {
-      summary: {
-        title: resultJson.summary?.title ?? '총정리',
-        message: resultJson.summary?.message ?? '',
-      },
       medicines: (resultJson.medicines ?? []).map((medicine) => ({
         scheduleMedicineId: medicine.scheduleMedicineId ?? 0,
         medicineName: medicine.medicineName ?? '',
@@ -114,7 +105,6 @@ function toPrescriptionAnalysis(
         dosageUnit: medicine.dosageUnit ?? null,
         checks: (medicine.checks ?? []).map((check) => ({
           type: check.type ?? '',
-          title: check.title ?? '',
           severity: normalizeSeverity(check.severity),
           message: check.message ?? '',
         })),
@@ -126,11 +116,11 @@ function toPrescriptionAnalysis(
 }
 
 function normalizeSeverity(value: unknown): AnalysisSeverity {
-  if (value === 'safe' || value === 'caution' || value === 'warning') {
+  if (value === 'safe') {
     return value;
   }
 
-  return 'caution';
+  return 'warning';
 }
 
 export async function fetchLatestPrescriptionAnalysis(scheduleId: number) {

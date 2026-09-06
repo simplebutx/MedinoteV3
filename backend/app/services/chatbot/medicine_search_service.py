@@ -11,7 +11,8 @@ from qdrant_client.models import FieldCondition, Filter, MatchValue
 
 logger = logging.getLogger("uvicorn.error")
 
-EMBEDDING_MODEL = "text-embedding-3-small"
+EMBEDDING_MODEL = "text-embedding-3-large"
+EMBEDDING_DIMENSIONS = 1536
 DEFAULT_SOURCE_NAME = "의약품안전나라"
 DEFAULT_SOURCE_URL = "https://nedrug.mfds.go.kr"
 VECTOR_SCORE_THRESHOLD = 0.2
@@ -20,69 +21,17 @@ HYBRID_LEXICAL_WEIGHT = 0.3
 SEMANTIC_KEYWORD_THRESHOLD = 0.55
 SEMANTIC_KEYWORD_TOP_K = 5
 
+# 제거표현
 STOPWORDS = {
-    "이거",
-    "그거",
-    "이약",
-    "약",
-    "의약품",
-    "뭐",
-    "무엇",
-    "어떻게",
-    "왜",
-    "언제",
-    "좀",
-    "알려줘",
-    "가능한가요",
-    "가능한지",
-    "가능",
-    "괜찮은가요",
-    "괜찮나요",
-    "괜찮",
-    "되나요",
-    "돼요",
-    "되요",
-    "먹어도",
-    "복용해도",
+    "이거","그거","이약","약", "의약품", "뭐", "무엇","어떻게",  "왜",  "언제",  "좀",  "알려줘",  "가능한가요",
+    "가능한지", "가능", "괜찮은가요",  "괜찮나요",  "괜찮",  "되나요",  "돼요", "되요",  "먹어도", "복용해도",
 }
 
+# 조사,어미 제거
 TRAILING_PARTICLES = (
-    "으로는",
-    "에서는",
-    "에게는",
-    "한테는",
-    "과는",
-    "와는",
-    "에서",
-    "에게",
-    "한테",
-    "으로",
-    "까지",
-    "부터",
-    "처럼",
-    "라도",
-    "이라",
-    "라면",
-    "이면",
-    "입니다",
-    "인가요",
-    "인가",
-    "나요",
-    "네요",
-    "겠죠",
-    "해야",
-    "해요",
-    "은",
-    "는",
-    "이",
-    "가",
-    "을",
-    "를",
-    "에",
-    "도",
-    "만",
-    "과",
-    "와",
+    "으로는","에서는", "에게는", "한테는", "과는", "와는","에서","에게","한테","으로","까지","부터","처럼",
+    "라도","이라","라면","이면","입니다","인가요","인가","나요","네요","겠죠","해야","해요","은","는",
+    "이","가","을","를","에","도","만","과","와",
 )
 
 # 질문 엠베딩 -> 검색 -> 반환
@@ -91,6 +40,7 @@ TRAILING_PARTICLES = (
 def get_embeddings():
     return OpenAIEmbeddings(
         model=EMBEDDING_MODEL,
+        dimensions=EMBEDDING_DIMENSIONS,
         api_key=settings.openai_api_key,
         request_timeout=30,
         max_retries=2,
@@ -136,6 +86,7 @@ def normalize_token(token: str) -> str:
 
     return compact
 
+# 중복제거
 def dedupe_preserve_order(values: list[str]) -> list[str]:
     seen = set()
     result = []
@@ -149,17 +100,14 @@ def dedupe_preserve_order(values: list[str]) -> list[str]:
 
     return result
 
+# 검색에 사용할 핵심 단어 추출
 def extract_search_keywords(query: str, medicine_name: str) -> list[str]:
+    # 질문을 단어 단위로 분리
     raw_tokens = re.findall(r"[가-힣a-zA-Z0-9]+", query.lower())
-    medicine_tokens = {
-        normalize_text(medicine_name),
-        *[
-            normalize_text(token)
-            for token in re.findall(r"[가-힣a-zA-Z0-9]+", medicine_name.lower())
-        ],
-    }
+    medicine_token = normalize_text(medicine_name)
     keywords = []
 
+    # 제거단어들 제거, 약 이름 제거
     for token in raw_tokens:
         compact = normalize_token(token)
 
@@ -172,13 +120,14 @@ def extract_search_keywords(query: str, medicine_name: str) -> list[str]:
         if compact in STOPWORDS:
             continue
 
-        if compact in medicine_tokens:
+        if compact == medicine_token:
             continue
 
         keywords.append(compact)
 
     return dedupe_preserve_order(keywords)
 
+# 검색된 문서 본문에서 단어들을 추출
 def extract_document_tokens(text: str) -> list[str]:
     raw_tokens = re.findall(r"[가-힣a-zA-Z0-9]+", text.lower())
     tokens = []
@@ -199,6 +148,7 @@ def extract_document_tokens(text: str) -> list[str]:
 
     return dedupe_preserve_order(tokens)
 
+# 질문 키워드와 문서 안의 개별 단어가 의미적으로 비슷한지 확인
 def cosine_similarity(left: list[float], right: list[float]) -> float:
     dot_product = sum(
         left_value * right_value
@@ -212,6 +162,7 @@ def cosine_similarity(left: list[float], right: list[float]) -> float:
 
     return dot_product / (left_norm * right_norm)
 
+# 질문 키워드와 문서 안의 단어가 의미적으로 비슷한지 찾아주는 함수
 def build_semantic_keyword_map(
     query_keywords: list[str],
     candidates: list[dict],
@@ -219,6 +170,7 @@ def build_semantic_keyword_map(
     if not query_keywords or not candidates:
         return {}
 
+    # 모든 후보문서의 단어들을 하나로 합침 (중복제거)
     document_tokens = dedupe_preserve_order([
         token
         for candidate in candidates
@@ -228,24 +180,30 @@ def build_semantic_keyword_map(
     if not document_tokens:
         return {}
 
+    # 질문 키워드와 문서 단어들을 전부 벡터로 변환
     try:
         embeddings = get_embeddings().embed_documents(query_keywords + document_tokens)
     except Exception as error:
         logger.warning("semantic keyword expansion failed: %s", error)
         return {}
 
+    # 질문키워드 임베딩결과
     query_embeddings = embeddings[: len(query_keywords)]
+    # 문서키워드 임베딩결과
     document_embeddings = embeddings[len(query_keywords):]
     semantic_keyword_map = {}
 
+    # 결과 비교
     for keyword, keyword_embedding in zip(query_keywords, query_embeddings, strict=True):
         scored_tokens = []
 
+        # 질문키워드 임베딩결과와 문서키워드 임베딩결과 묶기
         for document_token, document_embedding in zip(
             document_tokens,
             document_embeddings,
             strict=True,
         ):
+            # 유사도 비교
             similarity = cosine_similarity(keyword_embedding, document_embedding)
 
             if similarity < SEMANTIC_KEYWORD_THRESHOLD:
@@ -253,6 +211,7 @@ def build_semantic_keyword_map(
 
             scored_tokens.append((document_token, similarity))
 
+        # 유사도 점수가 높은 문서 단어를 골라서 저장
         scored_tokens.sort(key=lambda item: item[1], reverse=True)
         semantic_keyword_map[keyword] = [
             token
@@ -261,6 +220,7 @@ def build_semantic_keyword_map(
 
     return semantic_keyword_map
 
+# 검색된 문서 안에 질문의 키워드가 얼마나 포함되어 있는지 점수화
 def calculate_lexical_score(
     text: str,
     query_keywords: list[str],
@@ -294,12 +254,15 @@ def calculate_lexical_score(
 
     return lexical_score, matched_keywords, matched_semantic_keywords
 
+# 벡터 검색 점수와 키워드 일치 점수를 합쳐서 문서 순위를 다시 정하는 함수
 def apply_hybrid_scores(
     candidates: list[dict],
     query: str,
     medicine_name: str,
 ) -> list[dict]:
+    # 검색에 사용할 핵심 단어 추출
     query_keywords = extract_search_keywords(query, medicine_name)
+    # 질문 키워드와 문서 안의 단어가 의미적으로 비슷한지
     semantic_keyword_map = build_semantic_keyword_map(query_keywords, candidates)
 
     logger.info(
@@ -311,17 +274,21 @@ def apply_hybrid_scores(
     scored_candidates = []
 
     for candidate in candidates:
+        # 문서안에 질문키워드 포함 점수 계산
         lexical_score, matched_keywords, matched_semantic_keywords = calculate_lexical_score(
             text=candidate.get("text") or "",
             query_keywords=query_keywords,
             semantic_keyword_map=semantic_keyword_map,
         )
         vector_score = candidate.get("vector_score") or 0.0
+
+        # 종합점수
         hybrid_score = (
             vector_score * HYBRID_VECTOR_WEIGHT
             + lexical_score * HYBRID_LEXICAL_WEIGHT
         )
 
+        # 결과 리스트화
         scored_candidates.append({
             **candidate,
             "hybrid_score": hybrid_score,
@@ -330,6 +297,7 @@ def apply_hybrid_scores(
             "matched_semantic_keywords": matched_semantic_keywords,
         })
 
+    # 재정렬
     scored_candidates.sort(
         key=lambda candidate: (
             candidate.get("hybrid_score") or 0.0,
@@ -350,6 +318,8 @@ def retrieve_candidates(medicine_name: str, query: str, top_k: int = 5):
     # Document 내부: page_content, metadata
     # 리턴값: list[tuple[Document, float]] 
     # 튜플: (doc 객체, score)
+
+    # 쿼리전체 - 문서전체 임베딩 비교
     docs_with_scores = vector_store.similarity_search_with_score(
     query=query,
     k=candidate_k,
@@ -365,6 +335,7 @@ def retrieve_candidates(medicine_name: str, query: str, top_k: int = 5):
 
     candidates = []
 
+    # 각 청크를 dict로 저장
     # vector score: 질문 벡터와 문서 벡터 비교 점수 (by Qdrant)
     for doc, score in docs_with_scores:
         if score < VECTOR_SCORE_THRESHOLD:
@@ -379,6 +350,7 @@ def retrieve_candidates(medicine_name: str, query: str, top_k: int = 5):
             "source_name": metadata.get("source_name") or DEFAULT_SOURCE_NAME,
             "source_url": metadata.get("source_url") or DEFAULT_SOURCE_URL,
         })
+
 
     scored_candidates = apply_hybrid_scores(
         candidates=candidates,

@@ -4,26 +4,35 @@ from typing import Any
 from langchain_openai import OpenAIEmbeddings
 from langchain_qdrant import QdrantVectorStore
 from qdrant_client.models import FieldCondition, Filter, MatchValue
+from tenacity import retry, stop_after_attempt, wait_exponential_jitter
 
 from app.core.config import settings
 from app.db.qdrant import get_qdrant_client
+from app.services.chatbot.medicine_search_service import (
+    apply_hybrid_scores,
+)
 
 logger = logging.getLogger("uvicorn.error")
 
-EMBEDDING_MODEL = "text-embedding-3-small"
+EMBEDDING_MODEL = "text-embedding-3-large"
+EMBEDDING_DIMENSIONS = 1536
 DEFAULT_SOURCE_NAME = "의약품안전나라"
 DEFAULT_SOURCE_URL = "https://nedrug.mfds.go.kr"
 TOP_K_PER_QUERY = 3
-MAX_DOCUMENTS_PER_MEDICINE = 8
+MAX_DOCUMENTS_PER_MEDICINE = 20
 
 
+class AnalysisRetrievalError(RuntimeError):
+    """처방전 분석 문서 검색 실패."""
+
+# 메인
 def attach_retrieval_context(context: dict[str, Any]) -> dict[str, Any]:
     return {
         **context,
         "medicines": [
             {
                 **medicine,
-                "retrievedDocuments": retrieve_medicine_documents(
+                **retrieve_medicine_documents(
                     user_context=context["user"],
                     medicine=medicine,
                 ),
@@ -36,49 +45,57 @@ def attach_retrieval_context(context: dict[str, Any]) -> dict[str, Any]:
 def retrieve_medicine_documents(
     user_context: dict[str, Any],
     medicine: dict[str, Any],
-) -> list[dict[str, Any]]:
-    documents: list[dict[str, Any]] = []
+) -> dict[str, list[dict[str, Any]]]:
+    # 검색어 생성
+    queries_by_category = build_retrieval_queries(user_context=user_context)
+    documents_by_category: dict[str, list[dict[str, Any]]] = {}
 
-    for query in build_retrieval_queries(user_context=user_context, medicine=medicine):
-        documents.extend(_retrieve_for_query(medicine_name=medicine["medicineName"], query=query))
+    for category, queries in queries_by_category.items():
+        candidates: list[dict[str, Any]] = []
 
-    return _dedupe_documents(documents)[:MAX_DOCUMENTS_PER_MEDICINE]
+        # 키워드별로 Qdrant 검색
+        for query in queries:
+            candidates.extend(
+                _retrieve_for_query(
+                    medicine_name=medicine["medicineName"],
+                    query=query,
+                )
+            )
 
+        candidates = _dedupe_documents(candidates)
 
+        # 같은 카테고리의 키워드들을 기준으로 점수 재계산
+        if candidates:
+            candidates = apply_hybrid_scores(
+                candidates=candidates,
+                query=" ".join(queries),
+                medicine_name=medicine["medicineName"],
+            )
+
+        documents_by_category[f"{category}Documents"] = (
+            candidates[:MAX_DOCUMENTS_PER_MEDICINE]
+        )
+
+    return documents_by_category
+
+# 검색어 생성 - 건강정보 + 기저질환
 def build_retrieval_queries(
     user_context: dict[str, Any],
-    medicine: dict[str, Any],
-) -> list[str]:
-    medicine_name = medicine["medicineName"]
+) -> dict[str, list[str]]:
     disease_names = [
         disease["diseaseName"]
         for disease in user_context["diseases"]
         if disease.get("diseaseName")
     ]
     active_health_flags = _get_active_health_flags(user_context["healthProfile"])
-    ingredient_names = [
-        ingredient["ingredientName"]
-        for ingredient in medicine["ingredients"]
-        if ingredient.get("ingredientName")
-    ]
-    queries = [
-        f"{medicine_name} 기저질환 금기 주의",
-        f"{medicine_name} 임신 수유 소아 고령 음주 흡연 주의",
-        f"{medicine_name} 성분 병용 주의 상호작용",
-    ]
 
-    if disease_names:
-        queries.append(f"{medicine_name} {' '.join(disease_names)} 복용 주의 금기")
+    return {
+        "health": _dedupe_strings(active_health_flags),
+        "disease": _dedupe_strings(disease_names),
+    }
 
-    if active_health_flags:
-        queries.append(f"{medicine_name} {' '.join(active_health_flags)} 주의")
-
-    if ingredient_names:
-        queries.append(f"{medicine_name} {' '.join(ingredient_names)} 병용 주의 상호작용")
-
-    return _dedupe_strings(queries)
-
-
+# 키워드별로 Qdrant에서 후보청크 검색
+@retry(stop=stop_after_attempt(3), wait=wait_exponential_jitter(), reraise=True)
 def _retrieve_for_query(medicine_name: str, query: str) -> list[dict[str, Any]]:
     try:
         docs_with_scores = _get_vector_store().similarity_search_with_score(
@@ -95,17 +112,18 @@ def _retrieve_for_query(medicine_name: str, query: str) -> list[dict[str, Any]]:
         )
     except Exception as error:
         logger.warning("analysis retrieval failed: %s", error)
-        return []
+        raise AnalysisRetrievalError("처방전 분석 문서 검색에 실패했습니다.") from error
 
     documents = []
 
+    # 검색 결과 응답 생성
     for doc, score in docs_with_scores:
         metadata = doc.metadata or {}
         documents.append(
             {
                 "query": query,
                 "text": doc.page_content,
-                "score": score,
+                "vector_score": score,
                 "medicineId": metadata.get("medicine_id"),
                 "documentType": metadata.get("document_type"),
                 "sectionTitle": metadata.get("section_title"),
@@ -116,16 +134,20 @@ def _retrieve_for_query(medicine_name: str, query: str) -> list[dict[str, Any]]:
 
     return documents
 
-
+# 검색기 객체 생성
 def _get_vector_store() -> QdrantVectorStore:
     return QdrantVectorStore(
         client=get_qdrant_client(),
         collection_name=settings.qdrant_collection_name,
-        embedding=OpenAIEmbeddings(model=EMBEDDING_MODEL, api_key=settings.openai_api_key),
+        embedding=OpenAIEmbeddings(
+            model=EMBEDDING_MODEL,
+            dimensions=EMBEDDING_DIMENSIONS,
+            api_key=settings.openai_api_key,
+        ),
         content_payload_key="text",
     )
 
-
+# 건강정보 조회 후 리스트에 추가
 def _get_active_health_flags(health_profile: dict[str, bool]) -> list[str]:
     labels = {
         "isPregnant": "임신",
@@ -136,15 +158,23 @@ def _get_active_health_flags(health_profile: dict[str, bool]) -> list[str]:
         "isElderly": "고령",
     }
 
+    # True인것만 추가
     return [label for key, label in labels.items() if health_profile.get(key)]
 
-
+# 중복제거
 def _dedupe_documents(documents: list[dict[str, Any]]) -> list[dict[str, Any]]:
     seen = set()
     result = []
 
     for document in documents:
-        key = (document.get("medicineId"), document.get("documentType"), document.get("text"))
+        # 서로 다른 검색어에서 나온 결과는 같은 청크여도 각각 유지한다.
+        # 예: 당뇨 검색 결과와 간질환 검색 결과를 모두 LLM에 전달한다.
+        key = (
+            document.get("query"),
+            document.get("medicineId"),
+            document.get("documentType"),
+            document.get("text"),
+        )
 
         if key in seen:
             continue
@@ -154,7 +184,7 @@ def _dedupe_documents(documents: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
     return result
 
-
+# 중복제거
 def _dedupe_strings(values: list[str]) -> list[str]:
     seen = set()
     result = []

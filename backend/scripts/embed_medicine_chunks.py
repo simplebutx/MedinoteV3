@@ -14,7 +14,7 @@ from app.db.qdrant import get_qdrant_client
 
 EMBEDDING_SIZE = 1536
 CHUNKS_PATH = Path("data/processed/medicine_chunks.jsonl")
-EMBEDDING_MODEL = "text-embedding-3-small"
+EMBEDDING_MODEL = "text-embedding-3-large"
 # 한번에 임베딩할 청크 수
 BATCH_SIZE = 100
 
@@ -65,6 +65,7 @@ def chunk_to_point_id(chunk):
 def get_embeddings():
     return OpenAIEmbeddings(
         model=EMBEDDING_MODEL,
+        dimensions=EMBEDDING_SIZE,
         api_key=settings.openai_api_key,
     )
 

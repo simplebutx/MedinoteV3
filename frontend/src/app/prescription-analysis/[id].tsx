@@ -29,7 +29,7 @@ import {
 } from "@/services/analysis-api";
 import { fetchScheduleById } from "@/services/schedule-api";
 
-type AnalysisSeverity = "safe" | "caution" | "warning";
+type AnalysisSeverity = "safe" | "warning";
 
 type AnalysisItem = {
   title: string;
@@ -138,7 +138,7 @@ export default function PrescriptionAnalysisScreen() {
 
           <View style={styles.titleBlock}>
             <ThemedText type="small" themeColor="textSecondary">
-              AI CHECK
+              AI ANALYSIS
             </ThemedText>
             <ThemedText type="subtitle">AI 처방전 분석</ThemedText>
           </View>
@@ -164,11 +164,6 @@ export default function PrescriptionAnalysisScreen() {
 
           {!isLoading && prescription && analysisResult ? (
             <>
-              <AnalysisSummaryCard
-                prescription={prescription}
-                analysisResult={analysisResult}
-              />
-
               <View style={styles.section}>
                 <ThemedText style={styles.sectionTitle}>약별 분석</ThemedText>
                 <View style={styles.medicineAnalysisList}>
@@ -197,87 +192,6 @@ export default function PrescriptionAnalysisScreen() {
         </ScrollView>
       </ThemedView>
     </AppScreen>
-  );
-}
-
-function AnalysisSummaryCard({
-  prescription,
-  analysisResult,
-}: {
-  prescription: PrescriptionRecord;
-  analysisResult: PrescriptionAnalysisResult;
-}) {
-  const theme = useTheme();
-  const medicineCount = prescription.medicines.length;
-  const summaryMessage = buildAnalysisSummaryMessage(analysisResult, medicineCount);
-
-  return (
-    <ThemedView type="backgroundElement" style={styles.summaryCard}>
-      <View style={styles.summaryTopRow}>
-        <View style={styles.summaryIcon}>
-          <Ionicons
-            name="sparkles-outline"
-            size={18}
-            color={theme.textSecondary}
-          />
-        </View>
-        <ThemedText style={styles.summaryEyebrow}>총정리</ThemedText>
-      </View>
-      <ThemedText style={styles.summaryTitle}>
-        {analysisResult.summary.title && analysisResult.summary.title !== '총정리'
-          ? analysisResult.summary.title
-          : '주요 주의사항'}
-      </ThemedText>
-      <ThemedText themeColor="textSecondary" style={styles.summaryBody}>
-        {summaryMessage}
-      </ThemedText>
-    </ThemedView>
-  );
-}
-
-function buildAnalysisSummaryMessage(
-  analysisResult: PrescriptionAnalysisResult,
-  medicineCount: number,
-) {
-  const summary = analysisResult.summary.message?.trim();
-  const genericSummary =
-    !summary ||
-    summary.includes('개 약을 개인 정보 기준으로 점검했어요') ||
-    summary === '약물 복용 시 주의사항을 확인하세요.';
-
-  if (!genericSummary) {
-    return summary;
-  }
-
-  const highlightedMessages = analysisResult.medicines
-    .map((medicine) => {
-      const check = medicine.checks
-        .filter((item) => item.severity === 'warning' || item.severity === 'caution')
-        .sort((left, right) => {
-          const severityOrder = { warning: 0, caution: 1, safe: 2 };
-          return severityOrder[left.severity] - severityOrder[right.severity];
-        })[0];
-
-      if (!check?.message?.trim()) {
-        return null;
-      }
-
-      const medicineName = medicine.medicineName
-        .split('(수출명', 1)[0]
-        .replace(/\([^)]*\)/g, '')
-        .trim();
-      const message = check.message.trim().replace(/[.。]+$/, '');
-
-      return message.startsWith(medicineName)
-        ? `${message}.`
-        : `${medicineName}은 ${message}.`;
-    })
-    .filter((message): message is string => Boolean(message))
-    .slice(0, 3);
-
-  return (
-    highlightedMessages.join(' ') ||
-    `${medicineCount}개 약에서 등록된 건강정보 기준의 직접 주의 항목은 크게 확인되지 않았어요.`
   );
 }
 
@@ -357,11 +271,21 @@ function toMedicineReport(medicine: PrescriptionAnalysisMedicine): MedicineRepor
     dosageAmount: medicine.dosageAmount,
     dosageUnit: medicine.dosageUnit,
     personalChecks: medicine.checks.map((check) => ({
-      title: check.title,
+      title: getAnalysisTitle(check.type),
       body: check.message,
       severity: check.severity,
     })),
   };
+}
+
+function getAnalysisTitle(type: string): string {
+  if (type === "DISEASE") {
+    return "기저질환과의 관련성";
+  }
+  if (type === "HEALTH_STATUS") {
+    return "건강상태 기반 주의";
+  }
+  return "주의 약/성분 매칭";
 }
 
 function buildFallbackMedicineReport(medicine: PrescriptionMedicine): MedicineReport {
@@ -376,12 +300,12 @@ function buildFallbackMedicineReport(medicine: PrescriptionMedicine): MedicineRe
       {
         title: "기저질환과의 관련성",
         body: `${medicineName}이 사용자가 등록한 질환과 관련해 복용 전 확인이 필요한 약인지 점검합니다.`,
-        severity: "caution" as const,
+        severity: "warning" as const,
       },
       {
         title: "건강상태 기반 주의",
         body: "임신, 수유, 흡연, 음주, 소아, 고령 여부에 따라 이 약에 추가 주의가 필요한지 확인합니다.",
-        severity: "caution" as const,
+        severity: "warning" as const,
       },
       {
         title: "주의 약/성분 매칭",
@@ -402,14 +326,6 @@ function getSeverityMeta(severity: AnalysisSeverity): {
       icon: "warning-outline",
       color: "#FFB4B4",
       background: "rgba(255, 92, 92, 0.2)",
-    };
-  }
-
-  if (severity === "caution") {
-    return {
-      icon: "alert-circle-outline",
-      color: "#F3E4B0",
-      background: "rgba(245, 190, 70, 0.22)",
     };
   }
 
@@ -458,38 +374,6 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     padding: Spacing.three,
     gap: Spacing.two,
-  },
-  summaryCard: {
-    borderRadius: 20,
-    padding: Spacing.three,
-    gap: Spacing.two,
-  },
-  summaryTopRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.two,
-  },
-  summaryIcon: {
-    width: 34,
-    height: 34,
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "rgba(60, 135, 247, 0.14)",
-  },
-  summaryEyebrow: {
-    fontSize: 14,
-    lineHeight: 19,
-    fontWeight: "800",
-  },
-  summaryTitle: {
-    fontSize: 20,
-    lineHeight: 26,
-    fontWeight: "800",
-  },
-  summaryBody: {
-    fontSize: 14,
-    lineHeight: 21,
   },
   section: {
     gap: Spacing.two,

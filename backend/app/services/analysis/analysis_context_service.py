@@ -11,7 +11,7 @@ from app.models.user_caution import UserCaution
 from app.models.user_disease import UserDisease
 from app.models.user_health import HealthProfile
 
-
+# 사용자 건강정보 + 약 정보
 def build_analysis_context(
     db: Session,
     user_id: int,
@@ -39,7 +39,7 @@ def build_analysis_context(
         ],
     }
 
-
+# 질병 정보 조회
 def _get_user_diseases(db: Session, user_id: int) -> list[dict[str, str | None]]:
     stmt = (
         select(UserDisease)
@@ -61,7 +61,7 @@ def _get_user_diseases(db: Session, user_id: int) -> list[dict[str, str | None]]
         for disease in diseases
     ]
 
-
+# 건강정보 조회
 def _get_health_profile(db: Session, user_id: int) -> dict[str, bool]:
     stmt = select(HealthProfile).where(HealthProfile.user_id == user_id)
 
@@ -90,7 +90,7 @@ def _get_health_profile(db: Session, user_id: int) -> dict[str, bool]:
         "isElderly": health_profile.is_elderly,
     }
 
-
+# 사용자 주의 약 조회
 def _get_user_caution_items(db: Session, user_id: int) -> list[dict[str, Any]]:
     stmt = (
         select(UserCaution)
@@ -116,7 +116,7 @@ def _get_user_caution_items(db: Session, user_id: int) -> list[dict[str, Any]]:
         for caution_item in caution_items
     ]
 
-
+# 약 성분 조회
 def _get_medicine_ingredients(
     db: Session,
     item_seq: int | None,

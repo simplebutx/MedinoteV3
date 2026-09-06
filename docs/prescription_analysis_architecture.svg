@@ -1,0 +1,120 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="760" viewBox="0 0 1600 760">
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#25243d"/>
+    </marker>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="3" stdDeviation="3" flood-color="#000000" flood-opacity="0.12"/>
+    </filter>
+    <style>
+      .box { fill:#ffffff; stroke:#25243d; stroke-width:3; rx:12; filter:url(#shadow); }
+      .db { fill:#ffffff; stroke:#25243d; stroke-width:3; filter:url(#shadow); }
+      .title { font:700 23px Arial, sans-serif; fill:#25243d; text-anchor:middle; }
+      .label { font:600 18px Arial, sans-serif; fill:#25243d; text-anchor:middle; }
+      .small { font:500 16px Arial, sans-serif; fill:#55546a; text-anchor:middle; }
+      .line { stroke:#25243d; stroke-width:3; fill:none; marker-end:url(#arrow); }
+      .dashed { stroke:#77758d; stroke-width:2.5; stroke-dasharray:8 7; fill:none; marker-end:url(#arrow); }
+    </style>
+  </defs>
+
+  <rect width="1600" height="760" fill="#faf9fc"/>
+  <text x="800" y="48" font-family="Arial, sans-serif" font-size="29" font-weight="700" fill="#25243d" text-anchor="middle">처방전 개인화 복약 분석 아키텍처</text>
+
+  <!-- main flow -->
+  <rect class="box" x="35" y="300" width="170" height="80"/>
+  <text class="title" x="120" y="347">사용자</text>
+
+  <rect class="box" x="270" y="300" width="190" height="80"/>
+  <text class="title" x="365" y="347">Frontend</text>
+
+  <rect class="box" x="525" y="300" width="190" height="80"/>
+  <text class="title" x="620" y="347">FastAPI</text>
+
+  <rect class="box" x="790" y="300" width="230" height="80"/>
+  <text class="title" x="905" y="335">LangGraph</text>
+  <text class="small" x="905" y="360">분석 흐름 제어</text>
+
+  <rect class="box" x="1095" y="300" width="210" height="80"/>
+  <text class="title" x="1200" y="335">Postprocess</text>
+  <text class="small" x="1200" y="360">최종 결과 정리</text>
+
+  <line class="line" x1="205" y1="325" x2="270" y2="325"/>
+  <rect x="211" y="292" width="65" height="25" fill="#faf9fc"/>
+  <text class="small" x="243" y="311">분석 요청</text>
+
+  <line class="line" x1="460" y1="325" x2="525" y2="325"/>
+  <rect x="466" y="292" width="65" height="25" fill="#faf9fc"/>
+  <text class="small" x="498" y="311">API 요청</text>
+
+  <line class="line" x1="715" y1="325" x2="790" y2="325"/>
+  <rect x="722" y="292" width="68" height="25" fill="#faf9fc"/>
+  <text class="small" x="756" y="311">분석 실행</text>
+
+  <line class="line" x1="1020" y1="325" x2="1095" y2="325"/>
+  <rect x="1023" y="292" width="72" height="25" fill="#faf9fc"/>
+  <text class="small" x="1058" y="311">분석 결과</text>
+
+  <line class="line" x1="1095" y1="365" x2="460" y2="365"/>
+  <rect x="705" y="372" width="125" height="25" fill="#faf9fc"/>
+  <text class="small" x="767" y="391">응답 반환</text>
+  <line class="line" x1="270" y1="355" x2="205" y2="355"/>
+  <rect x="205" y="385" width="65" height="25" fill="#faf9fc"/>
+  <text class="small" x="237" y="404">결과 표시</text>
+
+  <!-- graph nodes -->
+  <rect class="box" x="640" y="120" width="190" height="70"/>
+  <text class="title" x="735" y="163">Context</text>
+  <text class="small" x="735" y="184">사용자·약 정보 구성</text>
+
+  <rect class="box" x="900" y="120" width="190" height="70"/>
+  <text class="title" x="995" y="163">Retrieval</text>
+  <text class="small" x="995" y="184">건강·질환 문서 검색</text>
+
+  <rect class="box" x="1160" y="120" width="190" height="70"/>
+  <text class="title" x="1255" y="163">LLM</text>
+  <text class="small" x="1255" y="184">분석 문장 생성</text>
+
+  <line class="line" x1="850" y1="300" x2="735" y2="190"/>
+  <line class="line" x1="830" y1="155" x2="900" y2="155"/>
+  <line class="line" x1="1090" y1="155" x2="1160" y2="155"/>
+  <line class="line" x1="1255" y1="190" x2="1255" y2="300"/>
+
+  <!-- MySQL -->
+  <ellipse class="db" cx="450" cy="570" rx="105" ry="28"/>
+  <path class="db" d="M345 570 V660 C345 692 555 692 555 660 V570"/>
+  <ellipse class="db" cx="450" cy="660" rx="105" ry="28"/>
+  <text class="title" x="450" y="625">MySQL</text>
+  <text class="small" x="450" y="725">처방전·건강정보·주의약/성분</text>
+  <line class="line" x1="620" y1="380" x2="505" y2="550"/>
+  <rect x="500" y="445" width="180" height="27" fill="#faf9fc"/>
+  <text class="small" x="590" y="465">사용자·처방 정보 조회</text>
+
+  <!-- Qdrant -->
+  <ellipse class="db" cx="1390" cy="520" rx="105" ry="28"/>
+  <path class="db" d="M1285 520 V610 C1285 642 1495 642 1495 610 V520"/>
+  <ellipse class="db" cx="1390" cy="610" rx="105" ry="28"/>
+  <text class="title" x="1390" y="575">Qdrant</text>
+  <text class="small" x="1390" y="675">의약품 문서 chunk·embedding</text>
+  <line class="line" x1="1000" y1="190" x2="1320" y2="505"/>
+  <rect x="1085" y="350" width="210" height="27" fill="#faf9fc"/>
+  <text class="small" x="1190" y="370">건강·질환 키워드 검색</text>
+  <line class="line" x1="1320" y1="500" x2="1060" y2="190"/>
+  <rect x="1110" y="405" width="170" height="27" fill="#faf9fc"/>
+  <text class="small" x="1195" y="425">관련 문서 반환</text>
+
+  <!-- OpenAI -->
+  <rect class="box" x="1370" y="120" width="190" height="70"/>
+  <text class="title" x="1465" y="163">OpenAI API</text>
+  <line class="line" x1="1350" y1="155" x2="1370" y2="155"/>
+  <rect x="1325" y="205" width="140" height="27" fill="#faf9fc"/>
+  <text class="small" x="1395" y="225">분석 요청</text>
+
+  <!-- fallback -->
+  <rect class="box" x="760" y="470" width="240" height="70"/>
+  <text class="title" x="880" y="503">Fallback</text>
+  <text class="small" x="880" y="525">retry 후 실패 시 안내</text>
+  <path class="dashed" d="M850 380 V470"/>
+  <path class="dashed" d="M1095 350 C1040 400 1010 450 970 470"/>
+  <line class="dashed" x1="880" y1="540" x2="880" y2="580"/>
+  <text class="small" x="1025" y="565">분석 중지·오류 안내 결과</text>
+</svg>
