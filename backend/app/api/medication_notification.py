@@ -15,7 +15,7 @@ from app.schemas.medication_notification_schema import (
 )
 
 
-router = APIRouter(prefix="/medication-notifications", tags=["medication-notifications"])
+router = APIRouter(prefix="/api/medication-notifications", tags=["medication-notifications"])
 
 
 @router.get("", response_model=list[MedicationNotificationResponse])

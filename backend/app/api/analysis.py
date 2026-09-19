@@ -14,7 +14,7 @@ from app.schemas.analysis_schema import (
     PrescriptionAnalysisResponse,
 )
 
-router = APIRouter(prefix="/prescription-analyses", tags=["prescription-analysis"])
+router = APIRouter(prefix="/api/prescription-analyses", tags=["prescription-analysis"])
 
 
 @router.post(

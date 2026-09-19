@@ -31,9 +31,9 @@ from app.schemas.schedule_schema import (
     ScheduleTimeResponse,
 )
 
-schedule_router = APIRouter(prefix="/medication-schedules", tags=["schedule"])
-intake_log_router = APIRouter(prefix="/medication-intake-logs", tags=["schedule"])
-schedule_time_router = APIRouter(prefix="/medication-schedule-times", tags=["schedule"])
+schedule_router = APIRouter(prefix="/api/medication-schedules", tags=["schedule"])
+intake_log_router = APIRouter(prefix="/api/medication-intake-logs", tags=["schedule"])
+schedule_time_router = APIRouter(prefix="/api/medication-schedule-times", tags=["schedule"])
 
 
 @schedule_router.post(

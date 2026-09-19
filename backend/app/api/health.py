@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException
 
 from app.db.qdrant import check_qdrant_connection
 
-router = APIRouter(prefix="/health", tags=["Health"])
+router = APIRouter(prefix="/api/health", tags=["Health"])
 
 
 @router.get("/qdrant")

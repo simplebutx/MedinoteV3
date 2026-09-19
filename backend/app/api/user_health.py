@@ -7,7 +7,7 @@ from app.dependencies.auth import get_current_user
 from app.models.user import User
 from app.schemas.user_health_schema import HealthResponse, HealthUpdateRequest
 
-router = APIRouter(prefix="/health-profile", tags=["health-profile"])
+router = APIRouter(prefix="/api/health-profile", tags=["health-profile"])
 
 
 @router.get("", response_model=HealthResponse)

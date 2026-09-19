@@ -6,7 +6,7 @@ from app.schemas.ocr_schema import OcrUploadUrlResponse, OcrResponse, OcrAnalyze
 from app.services.ocr.s3_service import create_presigned_upload_url
 from app.services.ocr.ocr_service import ocr
 
-router = APIRouter(prefix="/ocr", tags=["OCR"])
+router = APIRouter(prefix="/api/ocr", tags=["OCR"])
 
 @router.post("/upload-url", response_model=OcrUploadUrlResponse)
 def create_ocr_upload_url():

@@ -13,7 +13,7 @@ from app.schemas.search_schema import (
 )
 from app.services.chatbot.medicine_catalog_service import suggest_medicines
 
-router = APIRouter(prefix="/search", tags=["Search"])
+router = APIRouter(prefix="/api/search", tags=["Search"])
 
 
 def build_medicine_search_result(

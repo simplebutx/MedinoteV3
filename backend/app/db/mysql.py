@@ -16,8 +16,8 @@ SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
 Base = declarative_base()
 
 def get_db():
-    db = SessionLocal()
+    db = SessionLocal()    # 세션 생성
     try:
-        yield db
+        yield db   # 세션을 라우터에 전달 -> 엔드포인트와 CRUD가 db 사용
     finally:
-        db.close()
+        db.close()  # 요청 처리 후 세션 종료

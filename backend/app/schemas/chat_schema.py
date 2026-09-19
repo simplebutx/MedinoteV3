@@ -1,5 +1,4 @@
 from datetime import datetime
-from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -10,7 +9,6 @@ class ChatRequest(BaseModel):
     medicine_name: str | None = None
     medicine_id: str | None = None
     question: str = Field(min_length=1, max_length=500)
-    language: Literal["ko", "en"] = "ko"
 
 class ChatSource(BaseModel):
     name: str | None = None

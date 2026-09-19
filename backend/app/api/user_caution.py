@@ -15,7 +15,7 @@ from app.crud.user_caution import (
     search_caution_medicine as crud_search_caution_medicine,
 )
 
-router = APIRouter(prefix="/caution", tags=["caution"])
+router = APIRouter(prefix="/api/caution", tags=["caution"])
 
 @router.get("/", response_model=list[UserCautionResponse])
 def read_cautions(

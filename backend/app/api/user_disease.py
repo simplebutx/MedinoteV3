@@ -8,7 +8,7 @@ from app.schemas.user_disease_schema import UserDiseaseRequest, UserDiseaseRespo
 
 from app.crud.user_disease import create_user_disease, get_user_disease, delete_user_disease, get_disease_names
 
-router = APIRouter(prefix="/disease", tags=["disease"])
+router = APIRouter(prefix="/api/disease", tags=["disease"])
 
 @router.get("", response_model=list[UserDiseaseResponse])
 def read_disease(
