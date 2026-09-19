@@ -10,6 +10,8 @@ from app.services.analysis.analysis_postprocess_service import (
 )
 from app.services.analysis.analysis_retrieval_service import attach_retrieval_context
 
+import logging
+logger = logging.getLogger(__name__)
 
 class AnalysisState(TypedDict, total=False):
     db: Any
@@ -19,7 +21,6 @@ class AnalysisState(TypedDict, total=False):
     raw_result: str
     result: dict[str, Any]
     route: str
-    error_message: str
 
 # 노드: 컨텍스트 빌드
 def build_context_node(state: AnalysisState) -> dict[str, Any]:
@@ -32,16 +33,18 @@ def build_context_node(state: AnalysisState) -> dict[str, Any]:
             ),
             "route": "retrieve",
         }
-    except Exception as error:
-        return {"route": "context_fallback", "error_message": str(error)}
+    except Exception:
+        logger.exception("analysis graph node failed: build_context")
+        return {"route": "context_fallback"}
 
 # 노드: 검색
 def retrieve_context_node(state: AnalysisState) -> dict[str, Any]:
     try:
         reference_context = attach_retrieval_context(state["context"])
         return {"context": reference_context, "route": "llm"}
-    except Exception as error:
-        return {"route": "retrieval_fallback", "error_message": str(error)}
+    except Exception:
+        logger.exception("analysis graph node failed: retrieve_context")
+        return {"route": "retrieval_fallback"}
 
 # 노드: llm 답변 생성
 def generate_llm_node(state: AnalysisState) -> dict[str, Any]:
@@ -50,8 +53,9 @@ def generate_llm_node(state: AnalysisState) -> dict[str, Any]:
             "raw_result": generate_analysis_with_llm(state["context"]),
             "route": "postprocess",
         }
-    except Exception as error:
-        return {"route": "llm_fallback", "error_message": str(error)}
+    except Exception:
+        logger.exception("analysis graph node failed: generate_llm")
+        return {"route": "llm_fallback"}
 
 # 노드: 후처리
 def postprocess_node(state: AnalysisState) -> dict[str, Any]:
@@ -63,8 +67,9 @@ def postprocess_node(state: AnalysisState) -> dict[str, Any]:
             ),
             "route": "end",
         }
-    except Exception as error:
-        return {"route": "postprocess_fallback", "error_message": str(error)}
+    except Exception:
+        logger.exception("analysis graph node failed: postprocess")
+        return {"route": "postprocess_fallback"}
 
 
 def _fallback_result(state: AnalysisState, reason: str) -> dict[str, Any]:
@@ -92,7 +97,7 @@ def _fallback_result(state: AnalysisState, reason: str) -> dict[str, Any]:
                 build_caution_item_check(medicine),
             ],
         })
-    return {"result": {"medicines": medicines}, "route": "end"}
+    return {"result": {"medicines": medicines}}
 
 # 폴백: 컨텍스트 빌드
 def context_fallback_node(state: AnalysisState) -> dict[str, Any]:

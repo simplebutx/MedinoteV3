@@ -8,6 +8,10 @@ from app.services.ocr.llm_ocr_service import extract_prescription_from_image
 from app.services.ocr.medicine_match_service import match_medicines_with_db
 from app.services.ocr.s3_service import get_object_bytes
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 
 class OcrState(TypedDict, total=False):
     object_key: str
@@ -29,6 +33,7 @@ def fetch_image_node(state: OcrState) -> dict[str, Any]:
             "route": "extract",
         }
     except Exception:
+        logger.exception("ocr graph node failed: fetch_image")
         return {"route": "fetch_fallback"}
 
 # 노드: llm 분석 요청
@@ -40,6 +45,7 @@ def extract_prescription_node(state: OcrState) -> dict[str, Any]:
 
         return {"ocr_result": result, "route": "match"}
     except Exception:
+        logger.exception("ocr graph node failed: extract_prescription")
         return {"route": "extract_fallback"}
 
 # 노드: 약품명 매칭
@@ -49,6 +55,25 @@ def match_medicines_node(state: OcrState) -> dict[str, Any]:
             result=state["ocr_result"],
             db=state["db"],
         )
+
+        has_unmatched_medicine = any(
+            not medicine.get("matchedMedicineName")
+            for medicine in result.get("medicines", [])
+        )
+
+        if has_unmatched_medicine:
+            return {
+                "response": OcrResponse(
+                    status="partial_success",
+                    result_json=result,
+                    error_message=(
+                        "일부 약품을 자동으로 매칭하지 못했습니다. "
+                        "약품명을 확인해 주세요."
+                    ),
+                ),
+                "route": "end",
+            }
+
         return {
             "response": OcrResponse(
                 status="success",
@@ -57,15 +82,19 @@ def match_medicines_node(state: OcrState) -> dict[str, Any]:
             ),
             "route": "end",
         }
+
     except Exception:
-        # 약품 매칭만 실패한 경우 OCR 결과는 유지해 수동 확인을 가능하게 한다.
+        logger.exception("ocr graph node failed: match_medicines")
+
         return {
             "response": OcrResponse(
-                status="partial_success",
-                result_json=state["ocr_result"],
-                error_message="약품 DB 매칭에 실패했습니다. 약품명을 확인해 주세요.",
+                status="error",
+                result_json=state.get("ocr_result"),
+                error_message=(
+                    "약품 정보를 확인하는 중 문제가 발생했습니다. "
+                    "잠시 후 다시 시도해 주세요."
+                ),
             ),
-            "route": "end",
         }
 
 # 폴백: 이미지 요청
@@ -76,7 +105,6 @@ def fetch_fallback_node(state: OcrState) -> dict[str, Any]:
             result_json=None,
             error_message="처방전 이미지를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.",
         ),
-        "route": "end",
     }
 
 # 폴백: llm 분석 요청
@@ -87,7 +115,6 @@ def extract_fallback_node(state: OcrState) -> dict[str, Any]:
             result_json=None,
             error_message="처방전에서 약품 정보를 읽지 못했습니다. 이미지를 확인해 주세요.",
         ),
-        "route": "end",
     }
 
 

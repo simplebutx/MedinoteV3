@@ -36,7 +36,7 @@ def send_chat_message(
         room = get_chat_room(db=db, room_id=request.room_id, user_id=user_id)
 
         if room is None:
-            raise HTTPException(status_code=404, detail="Chat room not found")
+            raise HTTPException(status_code=404, detail="채팅방을 찾을 수 없습니다.")
     else:
         room = create_chat_room(
             db=db,
@@ -80,12 +80,6 @@ def send_chat_message(
             room_id=room.id,
             answer=fallback_answer,
             sources=[],
-            fallbacks=[
-                {
-                    "step": "validate_medicine",
-                    "reason": "의약품명이 없어 문서 검색을 진행하지 않았습니다.",
-                }
-            ],
         )
 
     # 약이름 있으면 최근약 수정
@@ -142,7 +136,7 @@ def read_room(db: Session, user_id: int, room_id: str) -> ChatRoom:
     room = get_chat_room(db=db, room_id=room_id, user_id=user_id)
 
     if room is None:
-        raise HTTPException(status_code=404, detail="Chat room not found")
+        raise HTTPException(status_code=404, detail="채팅방을 불러올수 없습니다.")
 
     return room
 
@@ -161,7 +155,7 @@ def update_room(
     )
 
     if room is None:
-        raise HTTPException(status_code=404, detail="Chat room not found")
+        raise HTTPException(status_code=404, detail="채팅방을 불러올수 없습니다.")
 
     return room
 
@@ -170,14 +164,14 @@ def delete_room(db: Session, user_id: int, room_id: str) -> None:
     deleted = delete_chat_room(db=db, room_id=room_id, user_id=user_id)
 
     if not deleted:
-        raise HTTPException(status_code=404, detail="Chat room not found")
+        raise HTTPException(status_code=404, detail="채팅방을 불러올수 없습니다.")
 
 
 def delete_message(db: Session, user_id: int, message_id: int) -> None:
     deleted = delete_chat_message(db=db, message_id=message_id, user_id=user_id)
 
     if not deleted:
-        raise HTTPException(status_code=404, detail="Chat message not found")
+        raise HTTPException(status_code=404, detail="채팅방을 불러올수 없습니다.")
 
 
 def read_room_messages(

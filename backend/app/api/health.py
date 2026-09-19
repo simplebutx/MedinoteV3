@@ -24,5 +24,5 @@ def qdrant_health_check():
     except Exception as e:
         raise HTTPException(
             status_code=503,
-            detail=f"Qdrant connection failed: {str(e)}",
+            detail=f"Qdrant connection failed",
         )

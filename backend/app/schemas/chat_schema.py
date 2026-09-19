@@ -14,16 +14,10 @@ class ChatSource(BaseModel):
     name: str | None = None
     url: str | None = None
 
-class FallbackInfo(BaseModel):
-    step: str
-    reason: str
-    error: str | None = None
-
 class ChatResponse(BaseModel):
     room_id: str
     answer: str
     sources: list[ChatSource] = Field(default_factory=list)
-    fallbacks: list[FallbackInfo] = Field(default_factory=list)
 
 # ------
 class CreateChatRoomRequest(BaseModel):

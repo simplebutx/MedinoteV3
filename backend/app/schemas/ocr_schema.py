@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -16,6 +16,6 @@ class OcrAnalyzeRequest(BaseModel):
 class OcrResponse(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
-    status: str
+    status: Literal["success", "partial_success", "error"]
     result_json: dict[str, Any] | None = Field(default=None, alias="resultJson")
     error_message: str | None = Field(default=None, alias="errorMessage")

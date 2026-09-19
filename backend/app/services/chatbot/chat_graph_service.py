@@ -1,4 +1,5 @@
 from typing import TypedDict
+import logging
 
 from langgraph.graph import END, START, StateGraph
 
@@ -19,8 +20,9 @@ from app.services.chatbot.reranker_service import (
     log_reranked_candidates,
 )
 
+logger = logging.getLogger(__name__)
 
-class ChatState(TypedDict):
+class ChatState(TypedDict, total=False):
     messages: list
     rewritten_question: str
     medicine_name: str
@@ -31,8 +33,8 @@ class ChatState(TypedDict):
     context: str
     answer: str
     sources: list[dict]
-    fallbacks: list[dict]
     route: str
+    failure_code: str
 
 # 답변에 추가할 출처 목록
 def build_sources(search_results: list[dict]) -> list[dict]:
@@ -79,17 +81,10 @@ def rewrite_user_question(state: ChatState):
             "route": "retrieve_candidates",
         }
 
-    except Exception as error:
+    except Exception:
+        logger.exception("chat graph node failed: rewrite_user_question")
         return {
             "route": "fallback_rewrite_question",
-            "fallbacks": [
-                *state.get("fallbacks", []),
-                {
-                    "step": "rewrite_question",
-                    "reason": "질문 재작성에 실패해 원문 질문으로 검색했습니다.",
-                    "error": str(error),
-                },
-            ],
         }
 
 # 폴백: 쿼리 재작성
@@ -126,17 +121,10 @@ def retrieve_candidate_documents(state: ChatState):
 
         # 예외: Threshold 기준점 넘는 문서가 없음
         if not candidates:
-                return {
-                    "candidates": [],
-                    "route": "fallback_retrieve_candidates",
-                    "fallbacks": [
-                        *state.get("fallbacks", []),
-                        {
-                            "step": "retrieve_candidates",
-                            "reason": "검색된 후보 문서가 없어 검색 결과 없이 답변을 생성했습니다.",
-                        },
-                    ],
-                }
+            return {
+                "route": "fallback_retrieve_candidates",
+                "failure_code": "NO_RESULTS",
+            }
 
         return {
             "candidates": candidates,
@@ -144,31 +132,31 @@ def retrieve_candidate_documents(state: ChatState):
         }
 
     # 예외: 검색 실패 (에러)
-    except Exception as error:
+    except Exception:
+        logger.exception("chat graph node failed: retrieve_candidate_documents")
         return {
-            "candidates": [],
             "route": "fallback_retrieve_candidates",
-            "fallbacks": [
-                *state.get("fallbacks", []),
-                {
-                    "step": "retrieve_candidates",
-                    "reason": "문서 검색에 실패해 검색 결과 없이 답변을 생성했습니다.",
-                    "error": str(error),
-                },
-            ],
+            "failure_code": "SEARCH_UNAVAILABLE",
         }
 
 # 폴백: 검색
 def fallback_retrieve_candidates(state: ChatState):
-    return {
-        "answer": (
-            "죄송합니다. 현재 관련 문서를 검색하지 못해 답변을 생성할 수 없습니다. "
+    messages = {
+        "NO_RESULTS": (
+            "질문과 관련된 의약품 문서를 찾지 못했습니다. "
+            "의약품명이나 질문 내용을 다시 확인해 주세요."
+        ),
+        "SEARCH_UNAVAILABLE": (
+            "검색 서비스를 일시적으로 사용할 수 없습니다. "
             "잠시 후 다시 시도해 주세요."
         ),
-        "search_results": [],
-        "context": "",
-        "sources": [],
-        "route": "end",
+    }
+    failure_code = state.get("failure_code")
+    return {
+        "answer": messages.get(
+            failure_code,
+            "답변을 생성하지 못했습니다. 잠시 후 다시 시도해 주세요.",
+        ),
     }
 
 # 분기: 검색 이후
@@ -193,17 +181,8 @@ def rerank_candidate_documents(state: ChatState):
         # 예외: Threshold 기준점 넘는 문서가 없음
         if not search_results:
             return {
-                "search_results": [],
-                "context": "",
-                "sources": [],
                 "route": "fallback_rerank_candidates",
-                "fallbacks": [
-                    *state.get("fallbacks", []),
-                    {
-                        "step": "rerank_candidates",
-                        "reason": "질문과 관련 있는 문서를 찾지 못했습니다.",
-                    },
-                ],
+                "failure_code": "NO_RESULTS",
             }
 
         return {
@@ -214,32 +193,33 @@ def rerank_candidate_documents(state: ChatState):
         }
 
     # 예외: 재정렬 실패 (에러)
-    except Exception as error:
+    except Exception:
+        logger.exception("chat graph node failed: rerank_candidate_documents")
         return {
-            "search_results": [],
-            "context": "",
-            "sources": [],
             "route": "fallback_rerank_candidates",
-            "fallbacks": [
-                *state.get("fallbacks", []),
-                {
-                    "step": "rerank_candidates",
-                    "reason": "문서 관련도 재정렬 중 오류가 발생했습니다.",
-                    "error": str(error),
-                },
-            ],
+            "failure_code": "SEARCH_UNAVAILABLE",
         }
 
 # 폴백: 리랭커
 def fallback_rerank_candidates(state: ChatState):
-    return {
-        "answer": (
-            "질문과 관련 있는 의약품 문서를 찾지 못해 답변을 생성할 수 없습니다. "
-            "의약품명과 질문 내용을 다시 확인해 주세요."
+    messages = {
+        "NO_RESULTS": (
+            "질문과 관련된 의약품 문서를 찾지 못했습니다. "
+            "의약품명이나 질문 내용을 다시 확인해 주세요."
         ),
-        "search_results": [],
-        "context": "",
-        "sources": [],
+        "SEARCH_UNAVAILABLE": (
+            "검색 서비스를 일시적으로 사용할 수 없습니다. "
+            "잠시 후 다시 시도해 주세요."
+        ),
+    }
+
+    failure_code = state.get("failure_code")
+
+    return {
+        "answer": messages.get(
+            failure_code,
+            "답변을 생성하지 못했습니다. 잠시 후 다시 시도해 주세요.",
+        ),
     }
 
 # 분기: 리랭커 이후
@@ -262,20 +242,13 @@ def generate_answer(state: ChatState):
         }
 
     # 예외: 답변생성 실패 (에러)
-    except Exception as error:
+    except Exception:
+        logger.exception("chat graph node failed: generate_answer")
         return {
             "answer": (
                 "답변을 생성하는 중 문제가 발생했습니다. "
                 "잠시 후 다시 시도해 주세요."
             ),
-            "fallbacks": [
-                *state.get("fallbacks", []),
-                {
-                    "step": "generate_answer",
-                    "reason": "답변 생성 중 오류가 발생했습니다.",
-                    "error": str(error),
-                },
-            ],
         }
 
 # 그래프 조립
@@ -338,11 +311,9 @@ def answer_question_with_graph(
         "question": question,
         "messages": messages or [],
         "top_k": top_k,
-        "fallbacks": [],
     })
 
     return {
         "answer": result["answer"],
         "sources": result.get("sources", []),
-        "fallbacks": result.get("fallbacks", []),
     }
