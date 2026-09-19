@@ -7,6 +7,7 @@ from qdrant_client.models import FieldCondition, Filter, MatchValue
 from tenacity import retry, stop_after_attempt, wait_exponential_jitter
 
 from app.core.config import settings
+from app.core.exceptions import ExternalServiceError
 from app.db.qdrant import get_qdrant_client
 from app.services.chatbot.medicine_search_service import (
     apply_hybrid_scores,
@@ -22,7 +23,7 @@ TOP_K_PER_QUERY = 3
 MAX_DOCUMENTS_PER_MEDICINE = 20
 
 
-class AnalysisRetrievalError(RuntimeError):
+class AnalysisRetrievalError(ExternalServiceError):
     """처방전 분석 문서 검색 실패."""
 
 # 메인
@@ -111,7 +112,7 @@ def _retrieve_for_query(medicine_name: str, query: str) -> list[dict[str, Any]]:
             ),
         )
     except Exception as error:
-        logger.warning("analysis retrieval failed: %s", error)
+        logger.exception("analysis retrieval failed")
         raise AnalysisRetrievalError("처방전 분석 문서 검색에 실패했습니다.") from error
 
     documents = []

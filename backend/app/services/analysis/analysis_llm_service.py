@@ -6,11 +6,12 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
 
 from app.core.config import settings
+from app.core.exceptions import ExternalServiceError
 
 CHAT_MODEL = "gpt-4o-mini"
 
 
-class AnalysisLLMError(RuntimeError):
+class AnalysisLLMError(ExternalServiceError):
     """처방전 분석 LLM 호출 실패."""
 
 

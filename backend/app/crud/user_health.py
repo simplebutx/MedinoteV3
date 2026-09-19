@@ -1,8 +1,8 @@
-from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
+from app.core.exceptions import DatabaseError
 from app.models.user_health import HealthProfile
 
 
@@ -10,12 +10,9 @@ def get_health_profile(db: Session, user_id: int) -> HealthProfile | None:
     stmt = select(HealthProfile).where(HealthProfile.user_id == user_id)
     try:
         return db.scalars(stmt).one_or_none()
-    except SQLAlchemyError:
+    except SQLAlchemyError as error:
         db.rollback()
-        raise HTTPException(
-            status_code=500,
-            detail="기본 건강정보 조회 중 오류가 발생했어요.",
-        )
+        raise DatabaseError("기본 건강정보 조회 중 오류가 발생했어요.") from error
 
 
 def upsert_health_profile(
@@ -44,11 +41,8 @@ def upsert_health_profile(
     try:
         db.commit()
         db.refresh(health_profile)
-    except SQLAlchemyError:
+    except SQLAlchemyError as error:
         db.rollback()
-        raise HTTPException(
-            status_code=500,
-            detail="기본 건강정보 저장 중 오류가 발생했어요.",
-        )
+        raise DatabaseError("기본 건강정보 저장 중 오류가 발생했어요.") from error
 
     return health_profile

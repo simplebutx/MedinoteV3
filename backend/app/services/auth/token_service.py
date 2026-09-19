@@ -1,11 +1,10 @@
-from fastapi import HTTPException, status
-
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from jose import jwt, JWTError
 
 from app.core.config import settings
+from app.core.exceptions import UnauthorizedError
 
 # JWT 토큰 생성
 def create_access_token(data: dict[str, Any]):
@@ -32,8 +31,5 @@ def decode_access_token(token: str):
             settings.jwt_secret_key,
             algorithms=[settings.jwt_algorithm],
         )
-    except JWTError:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="인증 정보가 유효하지 않습니다.",
-        )
+    except JWTError as error:
+        raise UnauthorizedError("인증 정보가 유효하지 않습니다.") from error

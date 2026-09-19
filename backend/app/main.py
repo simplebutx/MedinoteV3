@@ -1,4 +1,5 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.analysis import router as analysis_router
@@ -17,12 +18,25 @@ from app.api.schedule import (
     schedule_time_router,
 )
 from app.api.user_caution import router as user_caution_profile_router
+from app.core.exceptions import AppError
+from app.core.exception_handlers import (
+    app_error_handler,
+    http_exception_handler,
+    unexpected_error_handler,
+    validation_exception_handler,
+)
+
 
 app = FastAPI(
     title=settings.app_name,
     description="RAG, LangChain, LangGraph 기반 의료 AI 포트폴리오 API",
     version=settings.app_version,
 )
+
+app.add_exception_handler(AppError, app_error_handler)
+app.add_exception_handler(HTTPException, http_exception_handler)
+app.add_exception_handler(RequestValidationError, validation_exception_handler)
+app.add_exception_handler(Exception, unexpected_error_handler)
 
 app.add_middleware(
     CORSMiddleware,

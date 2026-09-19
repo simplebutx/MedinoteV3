@@ -10,7 +10,7 @@ class OcrUploadUrlResponse(BaseModel):
 
 
 class OcrAnalyzeRequest(BaseModel):
-    object_key: str
+    object_key: str = Field(min_length=1, max_length=500)
 
 
 class OcrResponse(BaseModel):

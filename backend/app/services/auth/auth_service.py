@@ -1,4 +1,3 @@
-from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.crud.user import create_user, get_user_by_email
@@ -6,14 +5,14 @@ from app.schemas.user_schema import SignupRequest, LoginRequest
 from app.services.auth.password_service import hash_password, verify_password
 from app.services.auth.token_service import create_access_token
 
+from app.core.exceptions import ConflictError, NotFoundError, UnauthorizedError
+
+
 def signup_user(db: Session, request: SignupRequest):
     existing_user = get_user_by_email(db=db, email=request.email)
 
     if existing_user:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="이미 가입된 이메일입니다.",
-        )
+        raise ConflictError("이미 가입된 이메일입니다.")
 
     password_hash = hash_password(request.password)
 
@@ -30,16 +29,10 @@ def login_user(db: Session, request: LoginRequest):
     existing_user = get_user_by_email(db=db, email=request.email)
 
     if not existing_user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="이메일로 가입된 회원이 없습니다.",
-        )
+        raise NotFoundError("이메일이나 비밀번호가 일치하지 않습니다.")
 
     if not verify_password(request.password, existing_user.password_hash):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="비밀번호가 일치하지 않습니다.",
-        )
+        raise UnauthorizedError("이메일이나 비밀번호가 일치하지 않습니다.")
 
     access_token = create_access_token(
         data={

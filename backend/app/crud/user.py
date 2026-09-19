@@ -1,20 +1,17 @@
 from datetime import date
-from fastapi import HTTPException, status
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
 
+from app.core.exceptions import ConflictError, DatabaseError
 from app.models.user import User
 
 
 def get_user_by_email(db: Session, email: str):
     try:
         return db.query(User).filter(User.email == email).first()
-    except SQLAlchemyError:
+    except SQLAlchemyError as error:
         db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="사용자 조회 중 오류가 발생했습니다.",
-        )
+        raise DatabaseError("사용자 조회 중 오류가 발생했습니다.") from error
 
 
 def create_user(
@@ -38,15 +35,9 @@ def create_user(
         db.commit()
         db.refresh(user)
         return user
-    except IntegrityError:
+    except IntegrityError as error:
         db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="이미 가입된 이메일입니다.",
-        )
-    except SQLAlchemyError:
+        raise ConflictError("이미 가입된 이메일입니다.") from error
+    except SQLAlchemyError as error:
         db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="회원가입 처리 중 오류가 발생했습니다.",
-        )
+        raise DatabaseError("회원가입 처리 중 오류가 발생했습니다.") from error

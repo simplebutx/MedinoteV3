@@ -1,4 +1,3 @@
-from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from app.crud.chat import (
@@ -21,6 +20,7 @@ from app.schemas.chat_schema import (
     UpdateChatRoomRequest,
 )
 from app.services.chatbot.chat_graph_service import answer_question_with_graph
+from app.core.exceptions import NotFoundError
 
 CHAT_TOP_K = 5
 
@@ -36,7 +36,7 @@ def send_chat_message(
         room = get_chat_room(db=db, room_id=request.room_id, user_id=user_id)
 
         if room is None:
-            raise HTTPException(status_code=404, detail="채팅방을 찾을 수 없습니다.")
+            raise NotFoundError("채팅방을 찾을 수 없습니다.")
     else:
         room = create_chat_room(
             db=db,
@@ -136,7 +136,7 @@ def read_room(db: Session, user_id: int, room_id: str) -> ChatRoom:
     room = get_chat_room(db=db, room_id=room_id, user_id=user_id)
 
     if room is None:
-        raise HTTPException(status_code=404, detail="채팅방을 불러올수 없습니다.")
+        raise NotFoundError("채팅방을 찾을 수 없습니다.")
 
     return room
 
@@ -155,7 +155,7 @@ def update_room(
     )
 
     if room is None:
-        raise HTTPException(status_code=404, detail="채팅방을 불러올수 없습니다.")
+        raise NotFoundError("채팅방을 찾을 수 없습니다.")
 
     return room
 
@@ -164,14 +164,14 @@ def delete_room(db: Session, user_id: int, room_id: str) -> None:
     deleted = delete_chat_room(db=db, room_id=room_id, user_id=user_id)
 
     if not deleted:
-        raise HTTPException(status_code=404, detail="채팅방을 불러올수 없습니다.")
+        raise NotFoundError("채팅방을 찾을 수 없습니다.")
 
 
 def delete_message(db: Session, user_id: int, message_id: int) -> None:
     deleted = delete_chat_message(db=db, message_id=message_id, user_id=user_id)
 
     if not deleted:
-        raise HTTPException(status_code=404, detail="채팅방을 불러올수 없습니다.")
+        raise NotFoundError("메시지를 찾을 수 없습니다.")
 
 
 def read_room_messages(

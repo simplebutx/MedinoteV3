@@ -10,8 +10,12 @@ s3_client = boto3.client(
     region_name=AWS_REGION,
 )
 
-def create_presigned_upload_url():
-    object_key = f"medinotev2/{uuid.uuid4()}.jpg"
+def get_user_object_key_prefix(user_id: int) -> str:
+    return f"medinotev2/users/{user_id}/prescriptions/"
+
+
+def create_presigned_upload_url(user_id: int):
+    object_key = f"{get_user_object_key_prefix(user_id)}{uuid.uuid4()}.jpg"
     upload_url = s3_client.generate_presigned_url(
         ClientMethod='put_object',
         Params={
@@ -23,6 +27,10 @@ def create_presigned_upload_url():
     )
 
     return object_key, upload_url
+
+
+def is_user_object_key(object_key: str, user_id: int) -> bool:
+    return object_key.startswith(get_user_object_key_prefix(user_id))
 
 # s3에서 이미지 가져오기
 def get_object_bytes(object_key: str) -> bytes:

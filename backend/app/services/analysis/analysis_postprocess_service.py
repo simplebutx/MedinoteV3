@@ -1,12 +1,16 @@
 import json
 from typing import Any
 
+from app.core.exceptions import AppError
+
 CHECK_TYPES = ("DISEASE", "HEALTH_STATUS", "CAUTION_ITEM")
 SEVERITIES = ("safe", "warning")
 
 
-class AnalysisPostprocessError(RuntimeError):
+class AnalysisPostprocessError(AppError):
     """LLM 응답을 최종 분석 결과로 변환하지 못한 경우."""
+
+    code = "ANALYSIS_POSTPROCESS_FAILED"
 
 
 def postprocess_analysis_result(

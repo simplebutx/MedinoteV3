@@ -183,8 +183,8 @@ def build_semantic_keyword_map(
     # 질문 키워드와 문서 단어들을 전부 벡터로 변환
     try:
         embeddings = get_embeddings().embed_documents(query_keywords + document_tokens)
-    except Exception as error:
-        logger.warning("semantic keyword expansion failed: %s", error)
+    except Exception:
+        logger.exception("semantic keyword expansion failed")
         return {}
 
     # 질문키워드 임베딩결과
