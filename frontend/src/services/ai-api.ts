@@ -36,8 +36,7 @@ export type ChatMessageRecord = {
   created_at: string;
 };
 
-type FastApiChatResponse = {
-  room_id: string;
+type FastApiAgentResponse = {
   answer: string;
 };
 
@@ -126,12 +125,12 @@ export async function requestAiChat(
     body: JSON.stringify({
       room_id: roomId,
       medicine_id: selectedMedicine?.medicine_id ?? null,
-      medicine_name: selectedMedicine?.medicine_name ?? null,
+      medicine_name: selectedMedicine?.medicine_name ?? '',
       question: trimmedQuestion,
     }),
   });
   const data = (await response.json().catch(() => null)) as
-    | FastApiChatResponse
+    | FastApiAgentResponse
     | null;
 
   if (!response.ok) {
@@ -139,7 +138,7 @@ export async function requestAiChat(
   }
 
   return {
-    room_id: data?.room_id ?? roomId,
+    room_id: roomId,
     answer: data?.answer ?? '답변을 받지 못했어요.',
     question: trimmedQuestion,
   } satisfies AiChatResponse;

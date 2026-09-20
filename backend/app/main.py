@@ -12,6 +12,7 @@ from app.api.ocr import router as ocr_router
 from app.core.config import settings
 from app.api.health import router as health_router
 from app.api.search import router as search_router
+from app.api.agent import router as agent_router
 from app.api.schedule import (
     intake_log_router,
     schedule_router,
@@ -66,6 +67,7 @@ app.include_router(schedule_time_router)
 app.include_router(intake_log_router)
 app.include_router(medication_notification_router)
 app.include_router(analysis_router)
+app.include_router(agent_router)
 
 @app.get("/health")
 def health_check():

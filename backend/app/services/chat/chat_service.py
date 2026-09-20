@@ -19,7 +19,7 @@ from app.schemas.chat_schema import (
     CreateChatRoomRequest,
     UpdateChatRoomRequest,
 )
-from app.services.chatbot.chat_graph_service import answer_question_with_graph
+from app.services.agent.agent_service import send_agent_message
 from app.core.exceptions import NotFoundError
 
 CHAT_TOP_K = 5
@@ -62,26 +62,6 @@ def send_chat_message(
     # 약이름 체크
     medicine_name = request.medicine_name or room.last_medicine_name
 
-    if not medicine_name:
-        fallback_answer = (
-            "의약품명을 확인할 수 없습니다. "
-            "@로 의약품을 선택하거나 질문에 약 이름을 포함해 주세요."
-        )
-
-        create_chat_message(
-            db=db,
-            room_id=room.id,
-            role="assistant",
-            content=fallback_answer,
-            sources=[],
-        )
-
-        return ChatResponse(
-            room_id=room.id,
-            answer=fallback_answer,
-            sources=[],
-        )
-
     # 약이름 있으면 최근약 수정
     if request.medicine_name:
         update_chat_room_last_medicine(
@@ -91,12 +71,13 @@ def send_chat_message(
             medicine_id=request.medicine_id,
         )
 
-    # 랭그래프 실행
-    result = answer_question_with_graph(
+    # Agent 실행: Agent 내부에서 필요한 도구와 기존 RAG 그래프를 선택
+    result = send_agent_message(
         medicine_name=medicine_name,
         question=request.question,
+        user_id=user_id,
+        db=db,
         messages=recent_messages,
-        top_k=CHAT_TOP_K,
     )
 
     # 답장 저장

@@ -34,7 +34,7 @@ from app.schemas.schedule_schema import (
     ScheduleTimeResponse,
 )
 
-
+# 일정 목록 조회
 def get_schedules(db: Session, user_id: int) -> list[ScheduleResponse]:
     stmt = (
         select(MedicationSchedule)
@@ -55,12 +55,17 @@ def get_schedules(db: Session, user_id: int) -> list[ScheduleResponse]:
 
     return [to_schedule_response(schedule) for schedule in schedules]
 
-
+# 일정 조회
 def get_schedule(db: Session, user_id: int, schedule_id: int) -> ScheduleResponse:
     schedule = _get_schedule_model(db=db, user_id=user_id, schedule_id=schedule_id)
     return to_schedule_response(schedule)
 
 
+# 분석 그래프에서 관계가 로드된 일정 모델이 필요할 때 사용
+def get_schedule_model(db: Session, user_id: int, schedule_id: int) -> MedicationSchedule:
+    return _get_schedule_model(db=db, user_id=user_id, schedule_id=schedule_id)
+
+# 일정 생성
 def create_schedule(
     db: Session,
     user_id: int,
@@ -93,7 +98,7 @@ def create_schedule(
 
     return get_schedule(db=db, user_id=user_id, schedule_id=schedule.id)
 
-
+# 일정 수정
 def update_schedule(
     db: Session,
     user_id: int,
@@ -131,7 +136,7 @@ def update_schedule(
 
     return get_schedule(db=db, user_id=user_id, schedule_id=schedule_id)
 
-
+# 일정 삭제
 def delete_schedule(db: Session, user_id: int, schedule_id: int) -> None:
     schedule = _get_schedule_model(db=db, user_id=user_id, schedule_id=schedule_id)
 
@@ -142,7 +147,7 @@ def delete_schedule(db: Session, user_id: int, schedule_id: int) -> None:
         db.rollback()
         raise HTTPException(status_code=500, detail="복약 일정 삭제 중 오류가 발생했어요.")
 
-
+# 복약 시간 생성
 def create_schedule_time(
     db: Session,
     user_id: int,
@@ -168,7 +173,7 @@ def create_schedule_time(
 
     return to_time_response(schedule_time, schedule_id=schedule_id)
 
-
+# 복약 시간 조회
 def get_schedule_times(
     db: Session,
     user_id: int,
@@ -194,7 +199,7 @@ def get_schedule_times(
 
     return [to_time_response(schedule_time, schedule_id=schedule_id) for schedule_time in times]
 
-
+# 복약 시간 수정
 def update_schedule_time(
     db: Session,
     user_id: int,
@@ -219,7 +224,7 @@ def update_schedule_time(
 
     return to_time_response(schedule_time, schedule_id=schedule_id)
 
-
+# 복약 시간 삭제
 def delete_schedule_time(db: Session, user_id: int, time_id: int) -> None:
     schedule_time, _ = _get_schedule_time_model(db=db, user_id=user_id, time_id=time_id)
 
@@ -230,7 +235,7 @@ def delete_schedule_time(db: Session, user_id: int, time_id: int) -> None:
         db.rollback()
         raise HTTPException(status_code=500, detail="복약 시간 삭제 중 오류가 발생했어요.")
 
-
+# 복약 기록 생성
 def create_intake_log(
     db: Session,
     user_id: int,
@@ -260,7 +265,7 @@ def create_intake_log(
 
     return to_intake_log_response(log)
 
-
+# 복약 기록 조회
 def get_intake_logs(
     db: Session,
     user_id: int,
@@ -281,7 +286,7 @@ def get_intake_logs(
 
     return [to_intake_log_response(log) for log in logs]
 
-
+# 복약 기록 수정
 def update_intake_log(
     db: Session,
     user_id: int,
@@ -311,7 +316,7 @@ def update_intake_log(
 
     return to_intake_log_response(log)
 
-
+# 날짜별 복약 일정 조회
 def get_daily_medications(
     db: Session,
     user_id: int,

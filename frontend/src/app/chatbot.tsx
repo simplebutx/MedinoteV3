@@ -107,7 +107,10 @@ export default function ChatbotScreen() {
   const [isSuggesting, setIsSuggesting] = useState(false);
 
   const questionBody = removeSelectedMedicineMention(question, selectedMedicine);
-  const canSend = questionBody.trim().length > 0 && !isSending && Boolean(activeRoomId);
+  const canSend =
+    questionBody.trim().length > 0 &&
+    !isSending &&
+    Boolean(activeRoomId);
 
   const mentionQuery = useMemo(() => {
     const match = question.match(/(?:^|\s)@([^\s@]*)$/);

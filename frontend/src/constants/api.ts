@@ -19,6 +19,14 @@ function getDefaultApiHost() {
 export const API_BASE_URL =
   process.env.EXPO_PUBLIC_API_BASE_URL ?? `http://${getDefaultApiHost()}:8000`;
 
+function normalizeApiPath(path: string) {
+  if (path === '/health' || path.startsWith('/api/')) {
+    return path;
+  }
+
+  return path.startsWith('/api') ? path : `/api${path}`;
+}
+
 export function buildApiUrl(path: string) {
-  return `${API_BASE_URL}${path}`;
+  return `${API_BASE_URL}${normalizeApiPath(path)}`;
 }
